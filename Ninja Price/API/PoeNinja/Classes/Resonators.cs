@@ -90,15 +90,26 @@ namespace Ninja_Price.API.PoeNinja.Classes
 
         public partial class ExplicitModifier
         {
+            [JsonProperty("text", NullValueHandling = NullValueHandling.Ignore)]
+            public string Text { get; set; }
 
             [JsonProperty("optional", NullValueHandling = NullValueHandling.Ignore)]
             public bool? Optional { get; set; }
         }
 
-        public partial class Sparkline
+        public partial class LowConfidenceSparkline
         {
             [JsonProperty("data", NullValueHandling = NullValueHandling.Ignore)]
             public List<double> Data { get; set; }
+
+            [JsonProperty("totalChange", NullValueHandling = NullValueHandling.Ignore)]
+            public double? TotalChange { get; set; }
+        }
+
+        public partial class Sparkline
+        {
+            [JsonProperty("data", NullValueHandling = NullValueHandling.Ignore)]
+            public List<double?> Data { get; set; }
 
             [JsonProperty("totalChange", NullValueHandling = NullValueHandling.Ignore)]
             public double? TotalChange { get; set; }

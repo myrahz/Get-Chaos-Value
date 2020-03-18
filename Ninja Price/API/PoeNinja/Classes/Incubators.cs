@@ -54,7 +54,7 @@ namespace Ninja_Price.API.PoeNinja.Classes
             public Sparkline Sparkline { get; set; }
 
             [JsonProperty("lowConfidenceSparkline", NullValueHandling = NullValueHandling.Ignore)]
-            public LowConfidenceSparkline LowConfidenceSparkline { get; set; }
+            public Sparkline LowConfidenceSparkline { get; set; }
 
             [JsonProperty("implicitModifiers", NullValueHandling = NullValueHandling.Ignore)]
             public List<object> ImplicitModifiers { get; set; }

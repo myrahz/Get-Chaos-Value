@@ -391,7 +391,7 @@ namespace Ninja_Price.Main
                         switch (item.MapInfo.IsShapedMap)
                         {
                             case true:
-                                var normalSharpedMapSearch = CollectedData.WhiteMaps.Lines.Find(x => x.BaseType == $"Shaped {item.BaseName}" && item.MapInfo.MapTier == x.MapTier && x.Variant == "Metamorph");
+                                var normalSharpedMapSearch = CollectedData.WhiteMaps.Lines.Find(x => x.BaseType == $"Shaped {item.BaseName}" && item.MapInfo.MapTier == x.MapTier && x.Variant == "Delerium");
                                 if (normalSharpedMapSearch != null)
                                 {
                                     item.PriceData.ChaosValue = (double)normalSharpedMapSearch.ChaosValue;
@@ -400,7 +400,7 @@ namespace Ninja_Price.Main
 
                                 break;
                             case false:
-                                var normalMapSearch = CollectedData.WhiteMaps.Lines.Find(x => x.BaseType == item.BaseName && item.MapInfo.MapTier == x.MapTier && x.Variant == "Metamorph");
+                                var normalMapSearch = CollectedData.WhiteMaps.Lines.Find(x => x.BaseType == item.BaseName && item.MapInfo.MapTier == x.MapTier && x.Variant == "Delerium");
                                 if (normalMapSearch != null)
                                 {
                                     item.PriceData.ChaosValue = (double)normalMapSearch.ChaosValue;

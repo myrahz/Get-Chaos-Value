@@ -44,6 +44,8 @@ public class CustomItem
     public readonly ClusterJewelData ClusterJewelData;
     public readonly List<string> EnchantedStats;
     public NecropolisCraftingMod NecropolisMod;
+    public readonly string CapturedMonsterName;
+
     public MapData MapInfo { get; set; } =  new MapData();
     public CurrencyData CurrencyInfo { get; set; } =  new CurrencyData();
     public Main.RelevantPriceData PriceData { get; set; } = new Main.RelevantPriceData();
@@ -202,12 +204,20 @@ public class CustomItem
                     CurrencyInfo.IsShard = true;
             }
 
+            if (itemEntity.TryGetComponent<CapturedMonster>(out var capturedMonster))
+            {
+                CapturedMonsterName = capturedMonster.MonsterVariety?.MonsterName;
+            }
 
             IsHovered = Core.GameController.Game.IngameState.UIHover.AsObject<NormalInventoryItem>().Address == Element?.Address;
 
             // sort items into types to use correct json data later from poe.ninja
             // This might need tweaking since if this catches anything other than currency.
-            if (BaseName == "Filled Coffin")
+            if (BaseName == "Imprinted Bestiary Orb")
+            {
+                ItemType = ItemTypes.Beast;
+            }
+            else if (BaseName == "Filled Coffin")
             {
                 ItemType = ItemTypes.Coffin;
             }

@@ -284,10 +284,10 @@ public partial class Main
         void AddSection() => textSections.Add("");
         void AddText(string text) => textSections[^1] += text;
 
-        var changeText = $"Change in last 7 Days: {HoveredItem.PriceData.ChangeInLast7Days}%%";
+        var changeText = $"Change in last 7 Days: {HoveredItem.PriceData.ChangeInLast7Days:+#;-#;0}%";
         var changeTextLength = changeText.Length - 1;
         var sectionBreak = $"\n{new string('-', changeTextLength)}\n";
-        if (HoveredItem.PriceData.ChangeInLast7Days != 0)
+        if (Math.Abs(HoveredItem.PriceData.ChangeInLast7Days) > 0.5)
         {
             AddText(changeText);
         }
@@ -358,6 +358,7 @@ public partial class Main
             case ItemTypes.Coffin:
             case ItemTypes.Allflame:
             case ItemTypes.Memory:
+            case ItemTypes.Beast:
                 if (priceInDivines >= 0.1)
                 {
                     AddText($"\nDivine: {priceInDivinesText}d");
@@ -416,13 +417,16 @@ public partial class Main
                 var chaosValue = StashTabValue;
                 var topValueItems = ItemsToDrawList
                     .Where(x => x.PriceData.MinChaosValue != 0)
-                    .GroupBy(x => (x.PriceData.DetailsId, x.BaseName, x.UniqueName, x.ItemType))
+                    .GroupBy(x => (x.PriceData.DetailsId, x.BaseName, x.UniqueName, x.ItemType, x.CapturedMonsterName))
                     .Select(group => new CustomItem
                     {
                         PriceData = { MinChaosValue = group.Sum(i => i.PriceData.MinChaosValue) },
                         CurrencyInfo = { StackSize = group.Sum(i => i.CurrencyInfo.StackSize) },
-                        BaseName = group.Key.BaseName,
-                        UniqueName = group.Key.UniqueName,
+                        BaseName = group.Key.ItemType switch
+                        {
+                            ItemTypes.Beast => group.Key.CapturedMonsterName,
+                            _ => string.IsNullOrWhiteSpace(group.Key.UniqueName) ? group.Key.BaseName : group.Key.UniqueName,
+                        },
                     })
                     .OrderByDescending(x => x.PriceData.MinChaosValue)
                     .Take(Settings.StashValueSettings.TopValuedItemCount.Value)

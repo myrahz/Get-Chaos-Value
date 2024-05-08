@@ -580,6 +580,16 @@ public partial class Main
                         }
 
                         break;
+                    case ItemTypes.Beast:
+                        var beastSearch = CollectedData.Beasts.lines.Find(x => x.name == item.CapturedMonsterName);
+                        if (beastSearch != null)
+                        {
+                            item.PriceData.MinChaosValue = beastSearch.chaosValue ?? 0;
+                            item.PriceData.ChangeInLast7Days = beastSearch.sparkline.totalChange ?? 0;
+                            item.PriceData.DetailsId = beastSearch.detailsId;
+                        }
+
+                        break;
                 }
             }
         }

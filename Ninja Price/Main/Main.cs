@@ -2,7 +2,7 @@
 using ExileCore.PoEMemory.FilesInMemory;
 using ExileCore.PoEMemory.MemoryObjects;
 using Newtonsoft.Json;
-using Ninja_Price.API.PoeNinja.Classes;
+using Ninja_Price.API.PoeNinja;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -17,7 +17,6 @@ public partial class Main : BaseSettingsPlugin<Settings.Settings>
 {
     private string NinjaDirectory;
     private CollectiveApiData CollectedData;
-    private const string PoeLeagueApiList = "http://api.pathofexile.com/leagues?type=main&compact=1";
     private const string CustomUniqueArtMappingPath = "uniqueArtMapping.json";
     private const string DefaultUniqueArtMappingPath = "uniqueArtMapping.default.json";
     private int _updating;
@@ -167,7 +166,7 @@ public partial class Main : BaseSettingsPlugin<Settings.Settings>
 
     private void UpdateLeagueList()
     {
-        var leagueList = new HashSet<string>();
+        var leagueList = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
         var playerLeague = PlayerLeague;
         if (playerLeague != null)
         {
@@ -176,9 +175,9 @@ public partial class Main : BaseSettingsPlugin<Settings.Settings>
 
         try
         {
-            var leagueListFromUrl = Utils.DownloadFromUrl(PoeLeagueApiList).Result;
-            var leagueData = JsonConvert.DeserializeObject<List<Leagues>>(leagueListFromUrl);
-            leagueList.UnionWith(leagueData.Where(league => !league.Id.Contains("SSF")).Select(league => league.Id));
+            var leagueListFromUrl = Utils.DownloadFromUrl("https://poe.ninja/api/data/getindexstate").Result;
+            var leagueData = JsonConvert.DeserializeObject<NinjaLeagueListRootObject>(leagueListFromUrl);
+            leagueList.UnionWith(leagueData.economyLeagues.Where(league => league.indexed).Select(league => league.name));
         }
         catch (Exception ex)
         {

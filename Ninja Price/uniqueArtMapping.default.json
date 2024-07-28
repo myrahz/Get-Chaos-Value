@@ -3872,7 +3872,8 @@
     "The Burden of Shadows"
   ],
   "Art/2DItems/Jewels/AfflictionJewel.dds": [
-    "That Which Was Taken"
+    "That Which Was Taken",
+    "The Light of Meaning"
   ],
   "Art/2DItems/Armours/Helmets/AzmeriHelmet.dds": [
     "The Trickster's Smile"
@@ -3888,6 +3889,90 @@
   ],
   "Art/2DItems/Armours/Boots/UltimatumBoots.dds": [
     "Gamblesprint"
+  ],
+  "Art/2DItems/Armours/BodyArmours/UberCortexArmour.dds": [
+    "The Apostate"
+  ],
+  "Art/2DItems/Armours/Helmets/UberElderHelm.dds": [
+    "The Devourer of Minds"
+  ],
+  "Art/2DItems/Armours/Boots/UberSirusBoots.dds": [
+    "The Tempest Rising"
+  ],
+  "Art/2DItems/Weapons/OneHandWeapons/Wands/UberMavenWand.dds": [
+    "Grace of the Goddess"
+  ],
+  "Art/2DItems/Armours/Helmets/UberEaterofWorldsHelmet.dds": [
+    "Ravenous Passion"
+  ],
+  "Art/2DItems/Belts/UberShaperBelt.dds": [
+    "The Tides of Time"
+  ],
+  "Art/2DItems/Armours/Gloves/UberSearingExarchGloves.dds": [
+    "The Celestial Brace"
+  ],
+  "Art/2DItems/Amulets/PinnacleAmulet.dds": [
+    "The Utmost"
+  ],
+  "Art/2DItems/Belts/NevaliusBelt.dds": [
+    "Nevalius Inheritance"
+  ],
+  "Art/2DItems/Armours/Gloves/PhreciaGloves.dds": [
+    "The Hand of Phrecia"
+  ],
+  "Art/2DItems/Armours/Boots/VersusoBoots.dds": [
+    "Veruso's Ambition"
+  ],
+  "Art/2DItems/Rings/GrattusRing.dds": [
+    "Grattus Signet"
+  ],
+  "Art/2DItems/Jewels/PerandusJewel.dds": [
+    "The Perandus Pact"
+  ],
+  "Art/2DItems/Rings/UberCircleHerald.dds": [
+    "Circle of Ambition"
+  ],
+  "Art/2DItems/Rings/RitualPhantasmRing.dds": [
+    "The Hateful Accuser"
+  ],
+  "Art/2DItems/Rings/RitualLifedrainRing.dds": [
+    "The Selfish Shepherd"
+  ],
+  "Art/2DItems/Rings/RitualSilenceRing.dds": [
+    "The Queller of Minds"
+  ],
+  "Art/2DItems/Armours/Shields/LayeredBarrierShield.dds": [
+    "Svalinn"
+  ],
+  "Art/2DItems/Weapons/TwoHandWeapons/TwoHandSwords/GreeneyesSword.dds": [
+    "The Living Blade"
+  ],
+  "Art/2DItems/Armours/Gloves/HornedOneGloves.dds": [
+    "Admiral's Arrogance"
+  ],
+  "Art/2DItems/Weapons/TwoHandWeapons/TwoHandMaces/JadeMarohiErqiHammer.dds": [
+    "Tawhoa's Felling"
+  ],
+  "Art/2DItems/Belts/KalguuranWardBelt.dds": [
+    "Ynda's Stand"
+  ],
+  "Art/2DItems/Weapons/OneHandWeapons/OneHandMaces/KalgForgeGuardMace.dds": [
+    "Serle's Masterwork"
+  ],
+  "Art/2DItems/Flasks/UniquePrismatic.dds": [
+    "Sap of the Seasons"
+  ],
+  "Art/2DItems/Flasks/UniqueIronwood.dds": [
+    "Mightblood Ire"
+  ],
+  "Art/2DItems/Flasks/UniqueAshbark.dds": [
+    "Wildfire Phloem"
+  ],
+  "Art/2DItems/Flasks/UniqueOakbranch.dds": [
+    "The Battle Within"
+  ],
+  "Art/2DItems/Flasks/UniqueSporebloom.dds": [
+    "Grasping Nightshade"
   ],
   "Art/2DItems/Jewels/GrandSpectrum2_red.dds": [
     "Grand Spectrum"

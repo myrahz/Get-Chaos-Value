@@ -4,6 +4,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using ExileCore.Shared.Nodes;
 
 namespace Ninja_Price.Main;
 
@@ -123,7 +124,7 @@ public partial class Main
         }
         catch (Exception ex)
         {
-            if (Settings.EnableDebugLogging)
+            if (Settings.DebugSettings.EnableDebugLogging)
             {
                 LogError($"Metadata loading failed: {ex}");
             }
@@ -166,13 +167,13 @@ public partial class Main
             }
             catch (Exception backupEx)
             {
-                if (Settings.EnableDebugLogging)
+                if (Settings.DebugSettings.EnableDebugLogging)
                 {
                     LogError($"{fileName} backup data load failed: {backupEx}");
                 }
             }
         }
-        else if (Settings.EnableDebugLogging)
+        else if (Settings.DebugSettings.EnableDebugLogging)
         {
             LogError($"No backup for {fileName}");
         }
@@ -184,13 +185,13 @@ public partial class Main
     {
         try
         {
-            if (Settings.EnableDebugLogging)
+            if (Settings.DebugSettings.EnableDebugLogging)
             {
                 LogMessage($"Downloading {fileName}");
             }
 
             var data = JsonConvert.DeserializeObject<T>(await Utils.DownloadFromUrl(string.Format(url, league)));
-            if (Settings.EnableDebugLogging)
+            if (Settings.DebugSettings.EnableDebugLogging)
             {
                 LogMessage($"{fileName} downloaded");
             }
@@ -205,7 +206,7 @@ public partial class Main
                 var errorPath = backupFile + ".error";
                 new FileInfo(errorPath).Directory.Create();
                 await File.WriteAllTextAsync(errorPath, ex.ToString());
-                if (Settings.EnableDebugLogging)
+                if (Settings.DebugSettings.EnableDebugLogging)
                 {
                     LogError($"{fileName} save failed: {ex}");
                 }
@@ -216,7 +217,7 @@ public partial class Main
         }
         catch (Exception ex)
         {
-            if (Settings.EnableDebugLogging)
+            if (Settings.DebugSettings.EnableDebugLogging)
             {
                 LogError($"{fileName} fresh data download failed: {ex}");
             }

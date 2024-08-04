@@ -7,12 +7,15 @@ using Ninja_Price.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using ExileCore.Shared.Nodes;
 using Color = SharpDX.Color;
 
 namespace Ninja_Price.Main;
 
 public partial class Main
 {
+    private CustomItem _inspectedItem;
+
     private static readonly Dictionary<string, string> ShardMapping = new()
     {
         { "Transmutation Shard", "Orb of Transmutation" },
@@ -79,6 +82,10 @@ public partial class Main
                     if (baseItemType != null)
                     {
                         HoveredItem = new CustomItem(inventoryItemIcon);
+                        if (Settings.DebugSettings.InspectHoverHotkey.PressedOnce())
+                        {
+                            _inspectedItem = HoveredItem;
+                        }
                         if (HoveredItem.ItemType != ItemTypes.None)
                             GetValue(HoveredItem);
                     }
@@ -568,7 +575,7 @@ public partial class Main
         }
         catch (Exception)
         {
-            if (Settings.EnableDebugLogging) { LogMessage($"{GetCurrentMethod()}.GetValue()", 5, Color.Red); }
+            if (Settings.DebugSettings.EnableDebugLogging) { LogMessage($"{GetCurrentMethod()}.GetValue()", 5, Color.Red); }
         }
         finally
         {
@@ -629,7 +636,7 @@ public partial class Main
         }
         catch (Exception e)
         {
-            if (Settings.EnableDebugLogging)
+            if (Settings.DebugSettings.EnableDebugLogging)
             {
                 LogMessage($"{GetCurrentMethod()}.GetValueHaggle() Error that i dont understand, Item: {item.BaseName}", 5, Color.Red);
                 LogMessage($"{GetCurrentMethod()}.GetValueHaggle() {e.Message}", 5, Color.Red);
@@ -642,7 +649,7 @@ public partial class Main
         if (StashUpdateTimer.ElapsedMilliseconds > Settings.DataSourceSettings.ItemUpdatePeriodMs)
         {
             StashUpdateTimer.Restart();
-            if (Settings.EnableDebugLogging) { LogMessage($"{GetCurrentMethod()} ValueUpdateTimer.Restart()", 5, Color.DarkGray); }
+            if (Settings.DebugSettings.EnableDebugLogging) { LogMessage($"{GetCurrentMethod()} ValueUpdateTimer.Restart()", 5, Color.DarkGray); }
         }
         else
         {
@@ -653,17 +660,17 @@ public partial class Main
         {
             if (!Settings.StashValueSettings.Show)
             {
-                if (Settings.EnableDebugLogging) { LogMessage($"{GetCurrentMethod()}.ShouldUpdateValues() Stash is not visible", 5, Color.DarkGray); }
+                if (Settings.DebugSettings.EnableDebugLogging) { LogMessage($"{GetCurrentMethod()}.ShouldUpdateValues() Stash is not visible", 5, Color.DarkGray); }
                 return false;
             }
         }
         catch (Exception)
         {
-            if (Settings.EnableDebugLogging) LogMessage($"{GetCurrentMethod()}.ShouldUpdateValues()", 5, Color.DarkGray);
+            if (Settings.DebugSettings.EnableDebugLogging) LogMessage($"{GetCurrentMethod()}.ShouldUpdateValues()", 5, Color.DarkGray);
             return false;
         }
 
-        if (Settings.EnableDebugLogging) LogMessage($"{GetCurrentMethod()}.ShouldUpdateValues() == True", 5, Color.LimeGreen);
+        if (Settings.DebugSettings.EnableDebugLogging) LogMessage($"{GetCurrentMethod()}.ShouldUpdateValues() == True", 5, Color.LimeGreen);
         return true;
     }
 
@@ -672,7 +679,7 @@ public partial class Main
         if (InventoryUpdateTimer.ElapsedMilliseconds > Settings.DataSourceSettings.ItemUpdatePeriodMs)
         {
             InventoryUpdateTimer.Restart();
-            if (Settings.EnableDebugLogging) { LogMessage($"{GetCurrentMethod()} ValueUpdateTimer.Restart()", 5, Color.DarkGray); }
+            if (Settings.DebugSettings.EnableDebugLogging) { LogMessage($"{GetCurrentMethod()} ValueUpdateTimer.Restart()", 5, Color.DarkGray); }
         }
         else
         {
@@ -683,24 +690,24 @@ public partial class Main
         {
             if (!Settings.InventoryValueSettings.Show.Value || !GameController.Game.IngameState.IngameUi.InventoryPanel.IsVisible)
             {
-                if (Settings.EnableDebugLogging) { LogMessage($"{GetCurrentMethod()}.ShouldUpdateValuesInventory() Inventory is not visible", 5, Color.DarkGray); }
+                if (Settings.DebugSettings.EnableDebugLogging) { LogMessage($"{GetCurrentMethod()}.ShouldUpdateValuesInventory() Inventory is not visible", 5, Color.DarkGray); }
                 return false;
             }
 
             // Dont continue if the stash page isnt even open
             if (GameController.Game.IngameState.IngameUi.InventoryPanel[InventoryIndex.PlayerInventory].VisibleInventoryItems == null)
             {
-                if (Settings.EnableDebugLogging) LogMessage($"{GetCurrentMethod()}.ShouldUpdateValuesInventory() Items == null", 5, Color.DarkGray);
+                if (Settings.DebugSettings.EnableDebugLogging) LogMessage($"{GetCurrentMethod()}.ShouldUpdateValuesInventory() Items == null", 5, Color.DarkGray);
                 return false;
             }
         }
         catch (Exception)
         {
-            if (Settings.EnableDebugLogging) LogMessage($"{GetCurrentMethod()}.ShouldUpdateValuesInventory()", 5, Color.DarkGray);
+            if (Settings.DebugSettings.EnableDebugLogging) LogMessage($"{GetCurrentMethod()}.ShouldUpdateValuesInventory()", 5, Color.DarkGray);
             return false;
         }
 
-        if (Settings.EnableDebugLogging) LogMessage($"{GetCurrentMethod()}.ShouldUpdateValuesInventory() == True", 5, Color.LimeGreen);
+        if (Settings.DebugSettings.EnableDebugLogging) LogMessage($"{GetCurrentMethod()}.ShouldUpdateValuesInventory() == True", 5, Color.LimeGreen);
         return true;
     }
 }

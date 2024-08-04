@@ -15,6 +15,7 @@ using System.Globalization;
 using System.Linq;
 using System.Numerics;
 using System.Text.RegularExpressions;
+using ExileCore.Shared.Nodes;
 using static Ninja_Price.Enums.HaggleTypes.HaggleType;
 using Color = SharpDX.Color;
 using RectangleF = SharpDX.RectangleF;
@@ -105,6 +106,10 @@ public partial class Main
         StashTabValue = 0;
         InventoryTabValue = 0;
         HoveredItem = null;
+        if (_inspectedItem != null)
+        {
+            GameController.InspectObject(_inspectedItem, "Ninja pricer hovered item");
+        }
 
         StashPanel = (GameController.Game.IngameState.IngameUi.StashElement, GameController.Game.IngameState.IngameUi.GuildStashElement) switch
         {
@@ -131,9 +136,9 @@ public partial class Main
                 Settings.DataSourceSettings.LastUpdateTime = DateTime.Now;
             }
 
-            if (Settings.EnableDebugLogging) LogMessage($"{GetCurrentMethod()}.Loop() is Alive", 5, Color.LawnGreen);
+            if (Settings.DebugSettings.EnableDebugLogging) LogMessage($"{GetCurrentMethod()}.Loop() is Alive", 5, Color.LawnGreen);
 
-            if (Settings.EnableDebugLogging)
+            if (Settings.DebugSettings.EnableDebugLogging)
                 LogMessage($"{GetCurrentMethod()}: Selected League: {Settings.DataSourceSettings.League.Value}", 5, Color.White);
 
             var tabType = StashPanel.VisibleStash?.InvType;
@@ -150,7 +155,7 @@ public partial class Main
 
                 FormattedItemList = FormatItems(ItemList);
 
-                if (Settings.EnableDebugLogging)
+                if (Settings.DebugSettings.EnableDebugLogging)
                     LogMessage($"{GetCurrentMethod()}.Render() Looping if (ShouldUpdateValues())", 5,
                         Color.LawnGreen);
 
@@ -176,7 +181,7 @@ public partial class Main
                     InventoryItemList = GetInventoryItems();
                     FormattedInventoryItemList = FormatItems(InventoryItemList);
 
-                    if (Settings.EnableDebugLogging)
+                    if (Settings.DebugSettings.EnableDebugLogging)
                         LogMessage($"{GetCurrentMethod()}.Render() Looping if (ShouldUpdateValuesInventory())", 5,
                             Color.LawnGreen);
 
@@ -202,7 +207,7 @@ public partial class Main
         catch (Exception e)
         {
             // ignored
-            if (Settings.EnableDebugLogging)
+            if (Settings.DebugSettings.EnableDebugLogging)
             {
                 LogMessage("Error in: Main Render Loop, restart PoEHUD.", 5, Color.Red);
                 LogMessage(e.ToString(), 5, Color.Orange);
@@ -355,7 +360,7 @@ public partial class Main
                 break;
         }
 
-        if (Settings.EnableDebugLogging)
+        if (Settings.DebugSettings.EnableDebugLogging)
         {
             AddSection();
             AddText($"\nUniqueName: {HoveredItem.UniqueName}"
@@ -426,7 +431,7 @@ public partial class Main
         catch (Exception e)
         {
             // ignored
-            if (Settings.EnableDebugLogging)
+            if (Settings.DebugSettings.EnableDebugLogging)
             {
                 LogMessage("Error in: VisibleStashValue, restart PoEHUD.", 5, Color.Red);
                 LogMessage(e.ToString(), 5, Color.Orange);
@@ -470,7 +475,7 @@ public partial class Main
         catch (Exception e)
         {
             // ignored
-            if (Settings.EnableDebugLogging)
+            if (Settings.DebugSettings.EnableDebugLogging)
             {
 
                 LogMessage("Error in: VisibleInventoryValue, restart PoEHUD.", 5, Color.Red);
@@ -505,7 +510,7 @@ public partial class Main
 
         Graphics.DrawBox(drawBox, Settings.VisualPriceSettings.BackgroundColor);
         Graphics.DrawText(item.PriceData.ItemBasePrices.Max().FormatNumber(Settings.VisualPriceSettings.SignificantDigits.Value), position, Settings.VisualPriceSettings.FontColor, FontAlign.Center);
-        if (Settings.EnableDebugLogging)
+        if (Settings.DebugSettings.EnableDebugLogging)
             Graphics.DrawText(string.Join(",", item.PriceData.ItemBasePrices), position, Settings.VisualPriceSettings.FontColor, FontAlign.Center);
     }
 
@@ -529,7 +534,7 @@ public partial class Main
         var itemList = inventory?.GetChildrenAs<NormalInventoryItem>().Skip(1).ToList() ?? new List<NormalInventoryItem>();
         if (haggleType == Gamble)
         {
-            if (Settings.EnableDebugLogging)
+            if (Settings.DebugSettings.EnableDebugLogging)
             {
                 foreach (var (item, index) in itemList.Select((item, index) => (item, index)))
                 {
@@ -550,7 +555,7 @@ public partial class Main
                 catch (Exception e)
                 {
                     // ignored
-                    if (Settings.EnableDebugLogging)
+                    if (Settings.DebugSettings.EnableDebugLogging)
                     {
                         LogMessage("Error in: ExpeditionGamble, restart PoEHUD.", 5, Color.Red);
                         LogMessage(e.ToString(), 5, Color.Orange);

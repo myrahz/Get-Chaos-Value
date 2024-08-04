@@ -1,4 +1,5 @@
 using System;
+using System.Windows.Forms;
 using ExileCore.Shared.Attributes;
 using ExileCore.Shared.Interfaces;
 using ExileCore.Shared.Nodes;
@@ -10,7 +11,7 @@ namespace Ninja_Price.Settings;
 public class Settings : ISettings
 {
     public DataSourceSettings DataSourceSettings { get; set; } = new();
-    public ToggleNode EnableDebugLogging { get; set; } = new(false);
+    public DebugSettings DebugSettings { get; set; } = new();
     public StashValueSettings StashValueSettings { get; set; } = new();
     public InventoryValueSettings InventoryValueSettings { get; set; } = new();
     public GroundItemSettings GroundItemSettings { get; set; } = new();
@@ -21,6 +22,16 @@ public class Settings : ISettings
     public LeagueSpecificSettings LeagueSpecificSettings { get; set; } = new();
     public VisualPriceSettings VisualPriceSettings { get; set; } = new();
     public ToggleNode Enable { get; set; } = new(true);
+}
+
+[Submenu(CollapsedByDefault = true)]
+public class DebugSettings
+{
+    public ToggleNode EnableDebugLogging { get; set; } = new(false);
+    public HotkeyNode InspectHoverHotkey { get; set; } = new(Keys.None);
+
+    [JsonIgnore]
+    public ButtonNode ResetInspectedItem { get; set; } = new();
 }
 
 [Submenu(CollapsedByDefault = true)]

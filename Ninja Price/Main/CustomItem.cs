@@ -8,6 +8,7 @@ using Ninja_Price.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using ExileCore.Shared.Nodes;
 
 namespace Ninja_Price.Main;
 
@@ -362,7 +363,7 @@ public class CustomItem
         }
         catch (Exception exception)
         {
-            if (Core.Settings.EnableDebugLogging)
+            if (Core.Settings.DebugSettings.EnableDebugLogging)
                 Core.LogError($"Ninja Pricer.CustomItem Error:\n{exception}");
         }
 

@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using ExileCore.Shared.Nodes;
 
 namespace Ninja_Price.Main;
 
@@ -21,7 +22,6 @@ public partial class Main : BaseSettingsPlugin<Settings.Settings>
     private const string DefaultUniqueArtMappingPath = "uniqueArtMapping.default.json";
     private int _updating;
     public Dictionary<string, List<string>> UniqueArtMapping = new Dictionary<string, List<string>>();
-    private readonly ConcurrentDictionary<NecropolisCraftingMod, string> _necropolisModText = [];
 
     [GeneratedRegex("<[^>]*>{{(?<data>[^}]*)}}")]
     private static partial Regex StripTagsRegex();
@@ -50,7 +50,10 @@ public partial class Main : BaseSettingsPlugin<Settings.Settings>
         };
         Settings.DataSourceSettings.SyncCurrentLeague.OnValueChanged += (_, _) => SyncCurrentLeague();
         CustomItem.InitCustomItem(this);
-
+        Settings.DebugSettings.ResetInspectedItem.OnPressed += () =>
+        {
+            _inspectedItem = null;
+        };
         GameController.PluginBridge.SaveMethod("NinjaPrice.GetValue", (Entity e) =>
         {
             var customItem = new CustomItem(e, null);
@@ -62,8 +65,8 @@ public partial class Main : BaseSettingsPlugin<Settings.Settings>
 
     public override void AreaChange(AreaInstance area)
     {
+        _inspectedItem = null;
         UniqueArtMapping = GetUniqueArtMapping();
-        _necropolisModText.Clear();
         SyncCurrentLeague();
     }
 
@@ -123,7 +126,7 @@ public partial class Main : BaseSettingsPlugin<Settings.Settings>
             using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(DefaultUniqueArtMappingPath);
             if (stream == null)
             {
-                if (Settings.EnableDebugLogging)
+                if (Settings.DebugSettings.EnableDebugLogging)
                 {
                     LogMessage($"Embedded stream {DefaultUniqueArtMappingPath} is missing");
                 }

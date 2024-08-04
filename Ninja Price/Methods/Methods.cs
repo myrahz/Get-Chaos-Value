@@ -553,6 +553,16 @@ public partial class Main
                         }
 
                         break;
+                    case ItemTypes.KalguuranRune:
+                        var runeSearch = CollectedData.KalguuranRunes.lines.Find(x => x.name == item.BaseName);
+                        if (runeSearch != null)
+                        {
+                            item.PriceData.MinChaosValue = runeSearch.chaosValue ?? 0;
+                            item.PriceData.ChangeInLast7Days = runeSearch.sparkline.totalChange ?? 0;
+                            item.PriceData.DetailsId = runeSearch.detailsId;
+                        }
+
+                        break;
                 }
             }
         }

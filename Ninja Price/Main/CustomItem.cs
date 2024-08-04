@@ -234,30 +234,29 @@ public class CustomItem
             {
                 ItemType = ItemTypes.Scarab;
             }
-            else if (itemEntity.Metadata.Contains("MapFragments/CurrencyUberBossKey") ||
-                ClassName == "StackableCurrency" && 
-                !BaseName.StartsWith("Crescent Splinter") &&
-                !BaseName.StartsWith("Simulacrum") &&
-                !BaseName.EndsWith("Delirium Orb") &&
-                !BaseName.Contains("Essence") &&
-                !BaseName.EndsWith(" Oil") &&
-                !BaseName.Contains("Tattoo ") &&
-                !BaseName.StartsWith("Omen ") &&
-                !BaseName.EndsWith("Artifact") &&
-                !BaseName.Contains("Astragali") &&
-                !BaseName.Contains("Burial Medallion") &&
-                !BaseName.Contains("Scrap Metal") &&
-                !BaseName.Contains("Exotic Coinage") &&
-                !BaseName.Contains("Remnant of") &&
-                !BaseName.Contains("Timeless ") &&
-                BaseName != "Prophecy" &&
-                BaseName != "Charged Compass" &&
-                ClassName != "MapFragment" &&
-                !BaseName.EndsWith(" Fossil") &&
-                !BaseName.StartsWith("Splinter of ") &&
-                ClassName != "Incubator" &&
-                !BaseName.EndsWith(" Catalyst") &&
-                BaseName != "Valdo's Puzzle Box")
+            else if (ClassName == "StackableCurrency" &&
+                     !BaseName.StartsWith("Crescent Splinter") &&
+                     !BaseName.StartsWith("Simulacrum") &&
+                     !BaseName.EndsWith("Delirium Orb") &&
+                     !BaseName.Contains("Essence") &&
+                     !BaseName.EndsWith(" Oil") &&
+                     !BaseName.Contains("Tattoo ") &&
+                     !BaseName.StartsWith("Omen ") &&
+                     !BaseName.EndsWith("Artifact") &&
+                     !BaseName.Contains("Astragali") &&
+                     !BaseName.Contains("Burial Medallion") &&
+                     !BaseName.Contains("Scrap Metal") &&
+                     !BaseName.Contains("Exotic Coinage") &&
+                     !BaseName.Contains("Remnant of") &&
+                     !BaseName.Contains("Timeless ") &&
+                     BaseName != "Prophecy" &&
+                     BaseName != "Charged Compass" &&
+                     ClassName != "MapFragment" &&
+                     !BaseName.EndsWith(" Fossil") &&
+                     !BaseName.StartsWith("Splinter of ") &&
+                     ClassName != "Incubator" &&
+                     !BaseName.EndsWith(" Catalyst") &&
+                     BaseName != "Valdo's Puzzle Box")
             {
                 ItemType = ItemTypes.Currency;
             }

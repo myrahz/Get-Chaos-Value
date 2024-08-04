@@ -90,18 +90,6 @@ public partial class Main
             {
                 result.Add(new ItemOnGround(new CustomItem(heistItemEntity, labelOnGround.Label), GroundItemProcessingType.HeistReward, null));
             }
-
-            if (Settings.LeagueSpecificSettings.ShowCoffinPrices && item.Path == "Metadata/Terrain/Leagues/Necropolis/Objects/NecropolisCorpseMarker")
-            {
-                var customItem = new CustomItem(labelOnGround.ItemOnGround, labelOnGround.Label.GetChildFromIndices(0, 0, 0));
-                var typedLabel = labelOnGround.Label.AsObject<NecropolisCollectableCorpse>();
-                var corpses = typedLabel.CorpsesByEntityId;
-                var surrogateComponent = corpses.GetValueOrDefault(labelOnGround.ItemOnGround.Id);
-                customItem.NecropolisMod = surrogateComponent.CraftingMod;
-                customItem.ItemLevel = surrogateComponent.Level;
-                customItem.ItemType = ItemTypes.Coffin;
-                result.Add(new ItemOnGround(customItem, GroundItemProcessingType.CollectableCorpse, null));
-            }
         }
 
         result.ForEach(x => GetValue(x.Item));
@@ -355,8 +343,6 @@ public partial class Main
             case ItemTypes.Invitation:
             case ItemTypes.SkillGem:
             case ItemTypes.ClusterJewel:
-            case ItemTypes.Coffin:
-            case ItemTypes.Allflame:
             case ItemTypes.Memory:
             case ItemTypes.Beast:
                 if (priceInDivines >= 0.1)

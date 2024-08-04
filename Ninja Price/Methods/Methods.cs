@@ -192,43 +192,6 @@ public partial class Main
                             item.PriceData.DetailsId = omenSearch.DetailsId;
                         }
                         break;
-                    case ItemTypes.Coffin:
-                        if (item.NecropolisMod is { } craftingMod)
-                        {
-                            var modText = _necropolisModText.GetOrAdd(craftingMod, m =>
-                            {
-                                var files = GameController.Game.Files;
-                                var r = StripTagsRegex();
-                                var dict = m.Stats.Zip(m.StatValues).Select(x => new Dictionary<GameStat, int> { { x.First.MatchingStat, x.Second } })
-                                    .Select(x => files.NecropolisStatDescriptions.TranslateMod(x)).ToList();
-                                var result = r.Replace(string.Join(", ", dict), "${data}");
-                                return result;
-                            });
-
-                            if (modText.Contains('<'))
-                            {
-                                _necropolisModText.TryRemove(craftingMod, out _);
-                            }
-
-                            var coffinSearch = CollectedData.Coffins.lines.Where(x => x.name == modText && x.levelRequired <= item.ItemLevel).MaxBy(x => x.levelRequired);
-                            if (coffinSearch != null)
-                            {
-                                item.PriceData.MinChaosValue = item.CurrencyInfo.StackSize * coffinSearch.chaosValue ?? 0;
-                                item.PriceData.ChangeInLast7Days = coffinSearch.sparkline.totalChange ?? 0;
-                                item.PriceData.DetailsId = coffinSearch.detailsId;
-                            }
-                        }
-                        break;
-                    case ItemTypes.Allflame:
-                        var allflameSearch = CollectedData.Allflames.lines.Where(x => x.baseType == item.BaseName && x.levelRequired <= item.ItemLevel).MaxBy(x => x.levelRequired);
-                        if (allflameSearch != null)
-                        {
-                            item.PriceData.MinChaosValue = item.CurrencyInfo.StackSize * allflameSearch.chaosValue ?? 0;
-                            item.PriceData.ChangeInLast7Days = allflameSearch.sparkline.totalChange ?? 0;
-                            item.PriceData.DetailsId = allflameSearch.detailsId;
-                        }
-
-                        break;
                     case ItemTypes.Artifact:
                         var artifactSearch = CollectedData.Artifacts.Lines.Find(x => x.Name == item.BaseName);
                         if (artifactSearch != null)

@@ -217,17 +217,9 @@ public class CustomItem
             {
                 ItemType = ItemTypes.Beast;
             }
-            else if (BaseName == "Filled Coffin")
-            {
-                ItemType = ItemTypes.Coffin;
-            }
             else if (ClassName == "MemoryLine")
             {
                 ItemType = ItemTypes.Memory;
-            }
-            else if (ClassName == "NecropolisPack")
-            {
-                ItemType = ItemTypes.Allflame;
             }
             else if (ClassName == "MiscMapItem" && Path.StartsWith("Metadata/Items/MapFragments/Primordial/", StringComparison.Ordinal) &&
                      Path.EndsWith("Key", StringComparison.Ordinal))

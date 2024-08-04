@@ -91,8 +91,6 @@ public partial class Main
                 await LoadData<ClusterJewelNinjaData>("ClusterJewels.json", ClusterJewelsUrl, league, tryWebFirst, t => newData.ClusterJewels = t);
                 await LoadData<Tattoos.RootObject>("Tattoos.json", TattooUrl, league, tryWebFirst, t => newData.Tattoos = t);
                 await LoadData<Omens.RootObject>("Omens.json", OmenUrl, league, tryWebFirst, t => newData.Omens = t);
-                await LoadData<Coffins.RootObject>("Coffins.json", CoffinUrl, league, tryWebFirst, t => newData.Coffins = t);
-                await LoadData<Allflames.RootObject>("Allflames.json", AllflameUrl, league, tryWebFirst, t => newData.Allflames = t);
                 await LoadData<Memories.RootObject>("Memories.json", MemoriesUrl, league, tryWebFirst, t => newData.Memories = t);
                 await LoadData<Beasts.RootObject>("Beasts.json", BeastUrl, league, tryWebFirst, t => newData.Beasts = t);
 

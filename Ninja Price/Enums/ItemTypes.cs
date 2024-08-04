@@ -28,8 +28,6 @@ public enum ItemTypes
     ClusterJewel,
     Tattoo,
     Omen,
-    Coffin,
-    Allflame,
     Memory,
     Beast,
 }

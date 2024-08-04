@@ -28,8 +28,6 @@ public class CollectiveApiData
     public ClusterJewelNinjaData ClusterJewels { get; set; } = new();
     public Tattoos.RootObject Tattoos { get; set; } = new();
     public Omens.RootObject Omens { get; set; } = new();
-    public Coffins.RootObject Coffins { get; set; } = new();
-    public Allflames.RootObject Allflames { get; set; } = new();
     public Memories.RootObject Memories { get; set; } = new();
     public Beasts.RootObject Beasts { get; set; } = new();
 }

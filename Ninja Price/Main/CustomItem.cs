@@ -8,6 +8,7 @@ using Ninja_Price.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using ExileCore.PoEMemory.Models;
 using ExileCore.Shared.Nodes;
 
 namespace Ninja_Price.Main;
@@ -42,7 +43,7 @@ public class CustomItem
     public readonly int Sockets;
     public readonly List<string> UniqueNameCandidates;
     public ItemTypes ItemType;
-    public readonly ClusterJewelData ClusterJewelData;
+    public ClusterJewelData ClusterJewelData;
     public readonly List<string> EnchantedStats;
     public NecropolisCraftingMod NecropolisMod;
     public readonly string CapturedMonsterName;
@@ -75,6 +76,14 @@ public class CustomItem
 
     public CustomItem(NormalInventoryItem item) : this(item.Item, item)
     {
+    }
+
+    public CustomItem(BaseItemType baseItemType)
+    {
+        Path = baseItemType.Metadata;
+        ClassName = baseItemType.ClassName ?? string.Empty;
+        BaseName = baseItemType.BaseName ?? string.Empty;
+        ComputeType(null);
     }
 
     public CustomItem(Entity itemEntity, Element element)
@@ -212,154 +221,7 @@ public class CustomItem
 
             IsHovered = Core.GameController.Game.IngameState.UIHover.AsObject<NormalInventoryItem>().Address == Element?.Address;
 
-            // sort items into types to use correct json data later from poe.ninja
-            // This might need tweaking since if this catches anything other than currency.
-            if (Path.StartsWith("Metadata/Items/Currency/KalguuranRune", StringComparison.Ordinal))
-            {
-                ItemType = ItemTypes.KalguuranRune;
-            }
-            else if (BaseName == "Imprinted Bestiary Orb")
-            {
-                ItemType = ItemTypes.Beast;
-            }
-            else if (ClassName == "MemoryLine")
-            {
-                ItemType = ItemTypes.Memory;
-            }
-            else if (ClassName == "MiscMapItem" && Path.StartsWith("Metadata/Items/MapFragments/Primordial/", StringComparison.Ordinal) &&
-                     Path.EndsWith("Key", StringComparison.Ordinal))
-            {
-                ItemType = ItemTypes.Invitation;
-            }
-            else if (ClassName == "MapFragment" && Path.StartsWith("Metadata/Items/Scarabs/"))
-            {
-                ItemType = ItemTypes.Scarab;
-            }
-            else if (ClassName == "StackableCurrency" &&
-                     !BaseName.StartsWith("Crescent Splinter") &&
-                     !BaseName.StartsWith("Simulacrum") &&
-                     !BaseName.EndsWith("Delirium Orb") &&
-                     !BaseName.Contains("Essence") &&
-                     !BaseName.EndsWith(" Oil") &&
-                     !BaseName.Contains("Tattoo ") &&
-                     !BaseName.StartsWith("Omen ") &&
-                     !BaseName.EndsWith("Artifact") &&
-                     !BaseName.Contains("Astragali") &&
-                     !BaseName.Contains("Burial Medallion") &&
-                     !BaseName.Contains("Scrap Metal") &&
-                     !BaseName.Contains("Exotic Coinage") &&
-                     !BaseName.Contains("Remnant of") &&
-                     !BaseName.Contains("Timeless ") &&
-                     BaseName != "Prophecy" &&
-                     BaseName != "Charged Compass" &&
-                     ClassName != "MapFragment" &&
-                     !BaseName.EndsWith(" Fossil") &&
-                     !BaseName.StartsWith("Splinter of ") &&
-                     ClassName != "Incubator" &&
-                     !BaseName.EndsWith(" Catalyst") &&
-                     BaseName != "Valdo's Puzzle Box")
-            {
-                ItemType = ItemTypes.Currency;
-            }
-            else if (BaseName.EndsWith(" Catalyst"))
-            {
-                ItemType = ItemTypes.Catalyst;
-            }
-            else if (BaseName.Contains("Astragali") || BaseName.Contains("Burial Medallion") || BaseName.Contains("Scrap Metal") || BaseName.Contains("Exotic Coinage"))     
-            {
-                ItemType = ItemTypes.Artifact;
-            }
-            else if (BaseName.EndsWith(" Oil"))
-            {
-                ItemType = ItemTypes.Oil;
-            }
-            else if (BaseName.Contains("Tattoo "))
-            {
-                ItemType = ItemTypes.Tattoo;
-            }
-            else if (BaseName.StartsWith("Omen "))
-            {
-                ItemType = ItemTypes.Omen;
-            }
-            else if (Path.Contains("Metadata/Items/DivinationCards"))
-            {
-                ItemType = ItemTypes.DivinationCard;
-            }
-            else if (BaseName.Contains("Essence") || BaseName.Contains("Remnant of"))
-            {
-                ItemType = ItemTypes.Essence;
-            }
-            else if (ClassName == "MapFragment" || BaseName.Contains("Timeless ") || BaseName.StartsWith("Simulacrum") ||
-                     ClassName == "StackableCurrency" && BaseName.StartsWith("Splinter of ") ||
-                     BaseName.StartsWith("Crescent Splinter") ||
-                     ClassName == "VaultKey" ||
-                     BaseName == "Valdo's Puzzle Box")
-            {
-                ItemType = ItemTypes.Fragment;
-            }
-            else if (MapInfo.IsMap && Rarity != ItemRarity.Unique)
-            {
-                ItemType = ItemTypes.Map;
-            }
-            else if (BaseName.EndsWith(" Fossil"))
-            {
-                ItemType = ItemTypes.Fossil;
-            }
-            else if (ClassName == "DelveStackableSocketableCurrency")
-            {
-                ItemType = ItemTypes.Resonator;
-            }
-            else if (ClassName is "Incubator" or "IncubatorStackable")
-            {
-                ItemType = ItemTypes.Incubator;
-            }
-            else if (BaseName.EndsWith("Delirium Orb"))
-            {
-                ItemType = ItemTypes.DeliriumOrbs;
-            }
-            else if (BaseName.StartsWith("Vial "))
-            {
-                ItemType = ItemTypes.Vials;
-            }
-            else if (ClassName is "Support Skill Gem" or "Active Skill Gem")
-            {
-                ItemType = ItemTypes.SkillGem;
-            }
-            else if (Rarity != ItemRarity.Unique && BaseName is
-                         "Large Cluster Jewel" or
-                         "Medium Cluster Jewel" or
-                         "Small Cluster Jewel")
-            {
-                ItemType = ItemTypes.ClusterJewel;
-                var passiveCount = itemEntity.GetComponent<LocalStats>()?.StatDictionary.GetValueOrDefault(ClusterJewelPassiveCountStat) ?? 0;
-                const string namePrefix = "Added Small Passive Skills grant: ";
-                var name = itemEntity.GetComponent<Mods>()?.EnchantedStats.FirstOrDefault(x => x.StartsWith(namePrefix))?.Replace(namePrefix, null)?.Replace("\n", ", ");
-                ClusterJewelData = new ClusterJewelData(name, passiveCount);
-            }
-            else
-            {
-                switch (Rarity) // Unique information
-                {
-                    case ItemRarity.Unique or ItemRarity.Normal when ClassName is "Amulet" or "Ring" or "Belt":
-                        ItemType = ItemTypes.UniqueAccessory;
-                        break;
-                    case ItemRarity.Unique or ItemRarity.Normal when itemEntity.HasComponent<Armour>() || ClassName == "Quiver":
-                        ItemType = ItemTypes.UniqueArmour;
-                        break;
-                    case ItemRarity.Unique when itemEntity.HasComponent<Flask>():
-                        ItemType = ItemTypes.UniqueFlask;
-                        break;
-                    case ItemRarity.Unique or ItemRarity.Normal when ClassName == "Jewel":
-                        ItemType = ItemTypes.UniqueJewel;
-                        break;
-                    case ItemRarity.Unique when MapInfo.IsMap:
-                        ItemType = ItemTypes.UniqueMap;
-                        break;
-                    case ItemRarity.Unique or ItemRarity.Normal when itemEntity.HasComponent<Weapon>():
-                        ItemType = ItemTypes.UniqueWeapon;
-                        break;
-                }
-            }
+            ComputeType(itemEntity);
         }
         catch (Exception exception)
         {
@@ -367,6 +229,158 @@ public class CustomItem
                 Core.LogError($"Ninja Pricer.CustomItem Error:\n{exception}");
         }
 
+    }
+
+    private void ComputeType(Entity itemEntity)
+    {
+        // sort items into types to use correct json data later from poe.ninja
+        // This might need tweaking since if this catches anything other than currency.
+        if (Path.StartsWith("Metadata/Items/Currency/KalguuranRune", StringComparison.Ordinal))
+        {
+            ItemType = ItemTypes.KalguuranRune;
+        }
+        else if (BaseName == "Imprinted Bestiary Orb")
+        {
+            ItemType = ItemTypes.Beast;
+        }
+        else if (ClassName == "MemoryLine")
+        {
+            ItemType = ItemTypes.Memory;
+        }
+        else if (ClassName == "MiscMapItem" && Path.StartsWith("Metadata/Items/MapFragments/Primordial/", StringComparison.Ordinal) &&
+                 Path.EndsWith("Key", StringComparison.Ordinal))
+        {
+            ItemType = ItemTypes.Invitation;
+        }
+        else if (ClassName == "MapFragment" && Path.StartsWith("Metadata/Items/Scarabs/"))
+        {
+            ItemType = ItemTypes.Scarab;
+        }
+        else if (ClassName == "StackableCurrency" &&
+                 !BaseName.StartsWith("Crescent Splinter") &&
+                 !BaseName.StartsWith("Simulacrum") &&
+                 !BaseName.EndsWith("Delirium Orb") &&
+                 !BaseName.Contains("Essence") &&
+                 !BaseName.EndsWith(" Oil") &&
+                 !BaseName.Contains("Tattoo ") &&
+                 !BaseName.StartsWith("Omen ") &&
+                 !BaseName.EndsWith("Artifact") &&
+                 !BaseName.Contains("Astragali") &&
+                 !BaseName.Contains("Burial Medallion") &&
+                 !BaseName.Contains("Scrap Metal") &&
+                 !BaseName.Contains("Exotic Coinage") &&
+                 !BaseName.Contains("Remnant of") &&
+                 !BaseName.Contains("Timeless ") &&
+                 BaseName != "Prophecy" &&
+                 BaseName != "Charged Compass" &&
+                 ClassName != "MapFragment" &&
+                 !BaseName.EndsWith(" Fossil") &&
+                 !BaseName.StartsWith("Splinter of ") &&
+                 ClassName != "Incubator" &&
+                 !BaseName.EndsWith(" Catalyst") &&
+                 BaseName != "Valdo's Puzzle Box")
+        {
+            ItemType = ItemTypes.Currency;
+        }
+        else if (BaseName.EndsWith(" Catalyst"))
+        {
+            ItemType = ItemTypes.Catalyst;
+        }
+        else if (BaseName.Contains("Astragali") || BaseName.Contains("Burial Medallion") || BaseName.Contains("Scrap Metal") || BaseName.Contains("Exotic Coinage"))     
+        {
+            ItemType = ItemTypes.Artifact;
+        }
+        else if (BaseName.EndsWith(" Oil"))
+        {
+            ItemType = ItemTypes.Oil;
+        }
+        else if (BaseName.Contains("Tattoo "))
+        {
+            ItemType = ItemTypes.Tattoo;
+        }
+        else if (BaseName.StartsWith("Omen "))
+        {
+            ItemType = ItemTypes.Omen;
+        }
+        else if (Path.Contains("Metadata/Items/DivinationCards"))
+        {
+            ItemType = ItemTypes.DivinationCard;
+        }
+        else if (BaseName.Contains("Essence") || BaseName.Contains("Remnant of"))
+        {
+            ItemType = ItemTypes.Essence;
+        }
+        else if (ClassName == "MapFragment" || BaseName.Contains("Timeless ") || BaseName.StartsWith("Simulacrum") ||
+                 ClassName == "StackableCurrency" && BaseName.StartsWith("Splinter of ") ||
+                 BaseName.StartsWith("Crescent Splinter") ||
+                 ClassName == "VaultKey" ||
+                 BaseName == "Valdo's Puzzle Box")
+        {
+            ItemType = ItemTypes.Fragment;
+        }
+        else if (MapInfo.IsMap && Rarity != ItemRarity.Unique)
+        {
+            ItemType = ItemTypes.Map;
+        }
+        else if (BaseName.EndsWith(" Fossil"))
+        {
+            ItemType = ItemTypes.Fossil;
+        }
+        else if (ClassName == "DelveStackableSocketableCurrency")
+        {
+            ItemType = ItemTypes.Resonator;
+        }
+        else if (ClassName is "Incubator" or "IncubatorStackable")
+        {
+            ItemType = ItemTypes.Incubator;
+        }
+        else if (BaseName.EndsWith("Delirium Orb"))
+        {
+            ItemType = ItemTypes.DeliriumOrbs;
+        }
+        else if (BaseName.StartsWith("Vial "))
+        {
+            ItemType = ItemTypes.Vials;
+        }
+        else if (ClassName is "Support Skill Gem" or "Active Skill Gem")
+        {
+            ItemType = ItemTypes.SkillGem;
+        }
+        else if (Rarity != ItemRarity.Unique && BaseName is
+                     "Large Cluster Jewel" or
+                     "Medium Cluster Jewel" or
+                     "Small Cluster Jewel")
+        {
+            ItemType = ItemTypes.ClusterJewel;
+            var passiveCount = itemEntity?.GetComponent<LocalStats>()?.StatDictionary.GetValueOrDefault(ClusterJewelPassiveCountStat) ?? 0;
+            const string namePrefix = "Added Small Passive Skills grant: ";
+            var name = itemEntity?.GetComponent<Mods>()?.EnchantedStats.FirstOrDefault(x => x.StartsWith(namePrefix))?.Replace(namePrefix, null).Replace("\n", ", ");
+            ClusterJewelData = new ClusterJewelData(name, passiveCount);
+        }
+        else
+        {
+            switch (Rarity) // Unique information
+            {
+                case ItemRarity.Unique or ItemRarity.Normal when ClassName is "Amulet" or "Ring" or "Belt":
+                    ItemType = ItemTypes.UniqueAccessory;
+                    break;
+                case ItemRarity.Unique or ItemRarity.Normal when itemEntity?.HasComponent<Armour>() == true || ClassName == "Quiver":
+                    ItemType = ItemTypes.UniqueArmour;
+                    break;
+                case ItemRarity.Unique when itemEntity?.HasComponent<Flask>() == true:
+                    ItemType = ItemTypes.UniqueFlask;
+                    break;
+                case ItemRarity.Unique or ItemRarity.Normal when ClassName == "Jewel":
+                    ItemType = ItemTypes.UniqueJewel;
+                    break;
+                case ItemRarity.Unique when MapInfo.IsMap:
+                    ItemType = ItemTypes.UniqueMap;
+                    break;
+                case ItemRarity.Unique or ItemRarity.Normal when itemEntity?.HasComponent<Weapon>() == true:
+                    ItemType = ItemTypes.UniqueWeapon;
+                    break;
+            }
+        }
     }
 
     public override string ToString()

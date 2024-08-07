@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using ExileCore.PoEMemory.Models;
 using ExileCore.Shared.Nodes;
 
 namespace Ninja_Price.Main;
@@ -57,6 +58,12 @@ public partial class Main : BaseSettingsPlugin<Settings.Settings>
         GameController.PluginBridge.SaveMethod("NinjaPrice.GetValue", (Entity e) =>
         {
             var customItem = new CustomItem(e, null);
+            GetValue(customItem);
+            return customItem.PriceData.MinChaosValue;
+        });
+        GameController.PluginBridge.SaveMethod("NinjaPrice.GetBaseItemTypeValue", (BaseItemType baseItemType) =>
+        {
+            var customItem = new CustomItem(baseItemType);
             GetValue(customItem);
             return customItem.PriceData.MinChaosValue;
         });

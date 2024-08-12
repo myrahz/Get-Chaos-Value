@@ -148,9 +148,18 @@ public partial class Main
             {
                 // Format stash items
                 ItemList = StashPanel.IsVisible && tabType != null ? StashPanel.VisibleStash?.VisibleInventoryItems?.ToList() ?? [] : [];
-                if (ItemList.Count == 0 && Settings.LeagueSpecificSettings.ShowRitualWindowPrices && GameController.Game.IngameState.IngameUi.RitualWindow.IsVisible)
+                if (ItemList.Count == 0)
                 {
-                    ItemList = GameController.Game.IngameState.IngameUi.RitualWindow.Items;
+                    if (Settings.LeagueSpecificSettings.ShowRitualWindowPrices &&
+                        GameController.Game.IngameState.IngameUi.RitualWindow is { IsVisible: true, Items: { Count: > 0 } ritualItems })
+                    {
+                        ItemList = ritualItems;
+                    }
+                    else if (Settings.LeagueSpecificSettings.ShowVillageRewardWindowPrices &&
+                             GameController.Game.IngameState.IngameUi.VillageRewardWindow is { IsVisible: true, Items: { Count: > 0 } villageItems })
+                    {
+                        ItemList = villageItems;
+                    }
                 }
 
                 FormattedItemList = FormatItems(ItemList);
@@ -251,7 +260,8 @@ public partial class Main
                 }
             }
         }
-        else if (Settings.LeagueSpecificSettings.ShowRitualWindowPrices && GameController.IngameState.IngameUi.RitualWindow.IsVisible)
+        else if (Settings.LeagueSpecificSettings.ShowRitualWindowPrices && GameController.IngameState.IngameUi.RitualWindow.IsVisible ||
+                 Settings.LeagueSpecificSettings.ShowVillageRewardWindowPrices && GameController.IngameState.IngameUi.VillageRewardWindow.IsVisible)
         {
             if (Settings.PriceOverlaySettings.Show &&
                 (!Settings.PriceOverlaySettings.DoNotDrawWhileAnItemIsHovered || HoveredItem == null))

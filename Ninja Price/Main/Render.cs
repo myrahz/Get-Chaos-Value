@@ -2,7 +2,6 @@ using ExileCore.PoEMemory;
 using ExileCore.PoEMemory.Components;
 using ExileCore.PoEMemory.Elements;
 using ExileCore.PoEMemory.Elements.InventoryElements;
-using ExileCore.PoEMemory.Elements.Necropolis;
 using ExileCore.Shared.Cache;
 using ExileCore.Shared.Enums;
 using ExileCore.Shared.Helpers;
@@ -13,9 +12,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Net;
 using System.Numerics;
 using System.Text.RegularExpressions;
-using ExileCore.Shared.Nodes;
+using ExileCore.PoEMemory.FilesInMemory;
 using static Ninja_Price.Enums.HaggleTypes.HaggleType;
 using Color = SharpDX.Color;
 using RectangleF = SharpDX.RectangleF;
@@ -50,6 +50,11 @@ public partial class Main
     {
         _slowGroundItems = new TimeCache<List<ItemOnGround>>(GetItemsOnGroundSlow, 500);
         _groundItems = new FrameCache<List<ItemOnGround>>(CacheUtils.RememberLastValue(GetItemsOnGround, new List<ItemOnGround>()));
+        _disenchantCache = new TimeCache<List<VillageUniqueDisenchantValue>>(() =>
+        {
+            GameController.Files.VillageUniqueDisenchantValues.ReloadIfEmpty();
+            return GameController.Files.VillageUniqueDisenchantValues.EntriesList;
+        }, 1000);
     }
 
     private List<ItemOnGround> GetItemsOnGround(List<ItemOnGround> previousValue)
@@ -230,6 +235,7 @@ public partial class Main
         ProcessItemsOnGround();
         ProcessTradeWindow();
         ProcessDivineFontRewards();
+        DrawVillageUniqueWindow();
         ShowSanctumOfferPrices();
         ProcessHoveredItem();
         VisibleInventoryValue();
@@ -662,6 +668,111 @@ public partial class Main
                     LogError(ex.ToString());
                 }
             }
+        }
+    }
+
+    private string _disenchantFilter = "";
+    private float _minDisenchantValue = 0;
+    private float _maxDisenchantCost = 1000;
+    private readonly CachedValue<List<VillageUniqueDisenchantValue>> _disenchantCache;
+
+    private void DrawVillageUniqueWindow()
+    {
+        if (Settings.LeagueSpecificSettings.ShowVillageUniqueDisenchantValueWindow)
+        {
+            var show = true;
+            if (ImGui.Begin("Unique disenchant values", ref show))
+            {
+                ImGui.SliderFloat("Minimum disenchant value", ref _minDisenchantValue, 0, 1000000);
+                ImGui.SliderFloat("Maximum disenchant cost", ref _maxDisenchantCost, 0, 100000);
+                ImGui.InputTextWithHint("##filter", "Filter", ref _disenchantFilter, 200);
+                if (ImGui.BeginTable("Unique disenchant values", 4, ImGuiTableFlags.Borders | ImGuiTableFlags.Sortable | ImGuiTableFlags.SizingFixedFit))
+                {
+                    ImGui.TableSetupColumn("Name (click to search on trade)");
+                    ImGui.TableSetupColumn("Price");
+                    ImGui.TableSetupColumn("Dust");
+                    ImGui.TableSetupColumn("Dust/chaos", ImGuiTableColumnFlags.DefaultSort | ImGuiTableColumnFlags.PreferSortDescending);
+                    ImGui.TableHeadersRow();
+                    var uniquePrices = CollectedData.UniqueArmours.Lines.GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.Min(y => y.ChaosValue ?? 0))
+                        .Concat(CollectedData.UniqueWeapons.Lines.GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.Min(y => y.ChaosValue ?? 0)))
+                        .Concat(CollectedData.UniqueAccessories.Lines.GroupBy(x => x.Name).ToDictionary(x => x.Key, x => x.Min(y => y.ChaosValue ?? 0)))
+                        .ToDictionary(x => x.Key.Replace('\x2019', '\x27'), x => x.Value);
+                    var excludedUniques = CollectedData.UniqueFlasks.Lines.Select(x => x.Name)
+                        .Concat(CollectedData.UniqueMaps.Lines.Select(x => x.Name))
+                        .Concat(CollectedData.UniqueJewels.Lines.Select(x => x.Name))
+                        .Select(x => x.Replace('\x2019', '\x27'))
+                        .ToHashSet();
+
+                    var unfilteredItems = _disenchantCache.Value.ExceptBy(excludedUniques, x => x.UniqueName?.Text.Replace('\x2019', '\x27') ?? "")
+                        .Select(x => (
+                            Name: x.UniqueName?.Text.Replace('\x2019', '\x27') ?? "",
+                            Cost: uniquePrices.GetValueOrDefault(x.UniqueName?.Text ?? ""),
+                            Value: x.Value * 2000,
+                            ValuePerChaos: uniquePrices.TryGetValue(x.UniqueName?.Text.Replace('\x2019', '\x27') ?? "", out var price) ? x.Value * 2000 / Math.Max(1, price) : 0))
+                        .ToList();
+                    var items = unfilteredItems.Any()
+                        ? unfilteredItems
+                            .Where(x => string.IsNullOrEmpty(_disenchantFilter) || x.Name.Contains(_disenchantFilter, StringComparison.InvariantCultureIgnoreCase))
+                            .Where(x => x.Value >= _minDisenchantValue)
+                            .Where(x => x.Cost <= _maxDisenchantCost)
+                            .ToList()
+                        : [("No items in game's memory...\nYou may need to approach Rog and give him\na unique one for data to show up", 0, -1, 0)];
+                    var sortSpecs = ImGui.TableGetSortSpecs();
+                    if (sortSpecs.SpecsCount > 0)
+                    {
+                        object SortSelector((string Name, double Cost, float Value, double ValuePerChaos) x) =>
+                            sortSpecs.Specs.ColumnIndex switch
+                            {
+                                0 => x.Name,
+                                1 => x.Cost,
+                                2 => x.Value,
+                                3 => x.ValuePerChaos,
+                                _ => 0,
+                            };
+
+                        if (sortSpecs.Specs.SortDirection == ImGuiSortDirection.Ascending)
+                        {
+                            items = items.OrderBy(SortSelector).ToList();
+                        }
+                        else if (sortSpecs.Specs.SortDirection == ImGuiSortDirection.Descending)
+                        {
+                            items = items.OrderByDescending(SortSelector).ToList();
+                        }
+                    }
+
+                    foreach (var item in items.DefaultIfEmpty())
+                    {
+                        ImGui.TableNextRow();
+                        ImGui.TableNextColumn();
+                        if (item.Value == -1)
+                        {
+                            ImGui.TextUnformatted(item.Name);
+                        }
+                        else if (ImGui.Selectable(item.Name))
+                        {
+                            var query = $$$"""{"query":{"status":{"option":"online"},"term":"{{{item.Name}}}","stats":[{"type":"and","filters":[]}]},"sort":{"price":"asc"}}""";
+                            Process.Start(new ProcessStartInfo(
+                                $"https://www.pathofexile.com/trade/search/{Settings.DataSourceSettings.League.Value}?q={WebUtility.UrlEncode(query)}")
+                            {
+                                UseShellExecute = true
+                            });
+                        }
+
+                        ImGui.TableNextColumn();
+                        ImGui.TextUnformatted($"{item.Cost:0.##}");
+                        ImGui.TableNextColumn();
+                        ImGui.TextUnformatted($"{item.Value:F0}");
+                        ImGui.TableNextColumn();
+                        ImGui.TextUnformatted($"{item.ValuePerChaos:F0}");
+                    }
+
+                    ImGui.EndTable();
+                }
+
+                ImGui.End();
+            }
+
+            Settings.LeagueSpecificSettings.ShowVillageUniqueDisenchantValueWindow.Value = show;
         }
     }
 

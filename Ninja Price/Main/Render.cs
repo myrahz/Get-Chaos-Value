@@ -740,7 +740,7 @@ public partial class Main
                         }
                     }
 
-                    foreach (var item in items.DefaultIfEmpty())
+                    foreach (var item in items)
                     {
                         ImGui.TableNextRow();
                         ImGui.TableNextColumn();

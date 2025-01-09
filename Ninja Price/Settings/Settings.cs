@@ -65,6 +65,7 @@ public class LeagueSpecificSettings
     public ToggleNode ShowCoffinPrices { get; set; } = new(true);
     public ToggleNode ShowRitualWindowPrices { get; set; } = new(true);
     public ToggleNode ShowVillageRewardWindowPrices { get; set; } = new(true);
+    public ToggleNode ShowPurchaseWindowPrices { get; set; } = new(true);
     public ToggleNode ShowSanctumRewardPrices { get; set; } = new(true);
     public ToggleNode ShowVillageUniqueDisenchantValueWindow { get; set; } = new(false);
 
@@ -150,7 +151,10 @@ public class StashValueSettings
 public class PriceOverlaySettings
 {
     public ToggleNode Show { get; set; } = new(true);
-    public ToggleNode DoNotDrawWhileAnItemIsHovered { get; set; } = new(true);
+
+    [JsonProperty("DoNotDrawWhileAnItemIsHovered2")]
+    public ToggleNode DoNotDrawWhileAnItemIsHovered { get; set; } = new(false);
+
     public RangeNode<int> BoxHeight { get; set; } = new(15, 0, 100);
 }
 

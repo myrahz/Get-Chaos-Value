@@ -154,10 +154,7 @@ public partial class Main : BaseSettingsPlugin<Settings.Settings>
 
     private Dictionary<string, List<string>> GetGameFileUniqueArtMapping()
     {
-        if (GameController.Files.UniqueItemDescriptions.EntriesList.Count == 0)
-        {
-            GameController.Files.LoadFiles();
-        }
+        GameController.Files.UniqueItemDescriptions.ReloadIfEmptyOrZero();
 
         return GameController.Files.ItemVisualIdentities.EntriesList.Where(x => x.ArtPath != null)
             .GroupJoin(GameController.Files.UniqueItemDescriptions.EntriesList.Where(x => x.ItemVisualIdentity != null),

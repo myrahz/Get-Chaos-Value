@@ -165,6 +165,16 @@ public partial class Main
                     {
                         ItemList = villageItems;
                     }
+                    else if (Settings.LeagueSpecificSettings.ShowPurchaseWindowPrices &&
+                             GameController.Game.IngameState.IngameUi.PurchaseWindow?.TabContainer?.VisibleStash is { IsVisible: true, VisibleInventoryItems: { Count: > 0 } purchaseWindowItems })
+                    {
+                        ItemList = purchaseWindowItems.ToList();
+                    }
+                    else if (Settings.LeagueSpecificSettings.ShowPurchaseWindowPrices &&
+                             GameController.Game.IngameState.IngameUi.PurchaseWindowHideout?.TabContainer?.VisibleStash is { IsVisible: true, VisibleInventoryItems: { Count: > 0 } hideoutPurchaseWindowItems })
+                    {
+                        ItemList = hideoutPurchaseWindowItems.ToList();
+                    }
                 }
 
                 FormattedItemList = FormatItems(ItemList);
@@ -267,7 +277,9 @@ public partial class Main
             }
         }
         else if (Settings.LeagueSpecificSettings.ShowRitualWindowPrices && GameController.IngameState.IngameUi.RitualWindow.IsVisible ||
-                 Settings.LeagueSpecificSettings.ShowVillageRewardWindowPrices && GameController.IngameState.IngameUi.VillageRewardWindow.IsVisible)
+                 Settings.LeagueSpecificSettings.ShowVillageRewardWindowPrices && GameController.IngameState.IngameUi.VillageRewardWindow.IsVisible ||
+                 Settings.LeagueSpecificSettings.ShowPurchaseWindowPrices && (GameController.IngameState.IngameUi.PurchaseWindow.IsVisible ||
+                                                                              GameController.IngameState.IngameUi.PurchaseWindowHideout.IsVisible))
         {
             if (Settings.PriceOverlaySettings.Show &&
                 (!Settings.PriceOverlaySettings.DoNotDrawWhileAnItemIsHovered || HoveredItem == null))
@@ -275,11 +287,19 @@ public partial class Main
                 foreach (var customItem in ItemsToDrawList)
                 {
                     if (customItem.ItemType == ItemTypes.None) continue;
-
-                    PriceBoxOverItem(customItem, null,
+                    var text = customItem.PriceData.MinChaosValue.FormatNumber(Settings.VisualPriceSettings.SignificantDigits.Value);
+                    var textSize = Graphics.MeasureText(text);
+                    var topRight = customItem.Element.GetClientRectCache.TopRight.ToVector2Num();
+                    var rect = new RectangleF(topRight.X - textSize.X, topRight.Y, textSize.X, textSize.Y);
+                    if (rect.Intersects(HoveredItem?.Element?.Tooltip?.GetClientRectCache ?? default))
+                    {
+                        continue;
+                    }
+                    Graphics.DrawTextWithBackground(text,
+                        topRight,
                         customItem.PriceData.MinChaosValue >= Settings.VisualPriceSettings.ValuableColorThreshold
                             ? Settings.VisualPriceSettings.ValuableColor
-                            : Settings.VisualPriceSettings.FontColor);
+                            : Settings.VisualPriceSettings.FontColor, FontAlign.Right, Color.Black);
                 }
             }
         }
@@ -342,8 +362,8 @@ public partial class Main
                 if (HoveredItem.UniqueNameCandidates.Any())
                 {
                     AddText(HoveredItem.UniqueNameCandidates.Count == 1
-                        ? $"\nIdentified as: {HoveredItem.UniqueNameCandidates.First()}"
-                        : $"\nIdentified as one of:\n{string.Join('\n', HoveredItem.UniqueNameCandidates)}");
+                        ? $"\nIdentified as: {HoveredItem.UniqueNameCandidates.First()} (disenchants for {_disenchantCache.Value.FirstOrDefault(y => y.UniqueName?.Text == HoveredItem.UniqueNameCandidates.First())?.Value * 2000})"
+                        : $"\nIdentified as one of:\n{string.Join('\n', HoveredItem.UniqueNameCandidates.Select(x => $"{x} (disenchants for {_disenchantCache.Value.FirstOrDefault(y => y.UniqueName?.Text == x)?.Value * 2000})"))}");
                 }
 
                 AddSection();
@@ -359,6 +379,11 @@ public partial class Main
                 AddText(minPriceText != maxPriceText 
                     ? $"\nChaos: {minPriceText}c - {maxPriceText}c" 
                     : $"\nChaos: {minPriceText}c");
+
+                if (!string.IsNullOrEmpty(HoveredItem.UniqueName))
+                {
+                    AddText($"\nDisenchants for {_disenchantCache.Value.FirstOrDefault(x => x.UniqueName?.Text == HoveredItem.UniqueName)?.Value * 2000}");
+                }
 
                 break;
             case ItemTypes.Map:
@@ -506,7 +531,8 @@ public partial class Main
         var drawBox = new RectangleF(box.X, box.Y - 2, box.Width, -Settings.PriceOverlaySettings.BoxHeight);
 
         (containerBox ?? default).Contains(ref drawBox, out var contains);
-        if (containerBox == null || contains)
+        if ((containerBox == null || contains) && 
+            !drawBox.Intersects(HoveredItem?.Element?.Tooltip?.GetClientRectCache ?? default))
         {
             Graphics.DrawBox(drawBox, Settings.VisualPriceSettings.BackgroundColor);
             var textPosition = new Vector2(drawBox.Center.X, drawBox.Center.Y - ImGui.GetTextLineHeight() / 2);
@@ -595,8 +621,7 @@ public partial class Main
 
                 if (customItem.PriceData.MinChaosValue > 0)
                 {
-                    Graphics.DrawText(customItem.PriceData.MinChaosValue.FormatNumber(2), box.TopRight, Settings.VisualPriceSettings.FontColor,
-                        FontAlign.Right);
+                    Graphics.DrawText(customItem.PriceData.MinChaosValue.FormatNumber(2), box.TopRight.ToVector2Num(), Settings.VisualPriceSettings.FontColor, FontAlign.Right);
                 }
 
                 if (Settings.LeagueSpecificSettings.ShowArtifactChaosPrices && TryGetArtifactPrice(customItem, out var amount, out var artifactName))
@@ -607,8 +632,7 @@ public partial class Main
                                    : "");
                     var textSize = Graphics.MeasureText(text);
                     var leftTop = box.BottomLeft.ToVector2Num() - new Vector2(0, textSize.Y);
-                    Graphics.DrawBox(leftTop, leftTop + textSize, Color.Black);
-                    Graphics.DrawText(text, leftTop, Settings.VisualPriceSettings.FontColor);
+                    Graphics.DrawTextWithBackground(text, leftTop, Settings.VisualPriceSettings.FontColor, Color.Black);
                 }
             }
         }

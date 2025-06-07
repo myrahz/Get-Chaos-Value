@@ -9,7 +9,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ExileCore.PoEMemory.Models;
-using ExileCore.Shared.Nodes;
 
 namespace Ninja_Price.Main;
 
@@ -48,6 +47,7 @@ public class CustomItem
     public NecropolisCraftingMod NecropolisMod;
     public readonly string CapturedMonsterName;
 
+    public readonly uint EntityId;
     public MapData MapInfo { get; set; } =  new MapData();
     public CurrencyData CurrencyInfo { get; set; } =  new CurrencyData();
     public Main.RelevantPriceData PriceData { get; set; } = new Main.RelevantPriceData();
@@ -90,6 +90,7 @@ public class CustomItem
     {
         try
         {
+            EntityId = itemEntity.Id;
             if (element != null && element.Address != 0)
                 Element = element;
 

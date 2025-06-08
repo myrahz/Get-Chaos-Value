@@ -39,7 +39,7 @@ public class Memories
 
     public class Sparkline
     {
-        public List<double> Data { get; set; }
+        public List<double?> Data { get; set; }
         public double? TotalChange { get; set; }
     }
 

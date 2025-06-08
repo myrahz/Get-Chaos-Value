@@ -7,6 +7,7 @@ using Ninja_Price.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using ExileCore;
 using Color = SharpDX.Color;
 
 namespace Ninja_Price.Main;
@@ -56,7 +57,7 @@ public partial class Main
 
     private static List<CustomItem> FormatItems(IEnumerable<NormalInventoryItem> itemList)
     {
-        return itemList.ToList().Where(x => x?.Item?.IsValid == true).Select(inventoryItem => new CustomItem(inventoryItem)).ToList();
+        return itemList.Where(x => x?.Item?.IsValid == true).Select(inventoryItem => new CustomItem(inventoryItem)).ToList();
     }
 
     private static bool TryGetShardParent(string shardBaseName, out string shardParent)
@@ -90,12 +91,31 @@ public partial class Main
                     }
                 }
             }
+
+            HoveredItemTooltipRect = HoveredItem?.Element?.Tooltip?.GetClientRectCache;
         }
-        catch
+        catch (Exception ex)
         {
-            // ignored
-            //LogError("Error in GetHoveredItem()", 10);
+            DebugWindow.LogError($"Failed to get the hovered item: {ex}");
         }
+    }
+
+    private void GetValue(IEnumerable<CustomItem> items)
+    {
+        foreach (var customItem in items)
+        {
+            GetValue(customItem);
+        }
+    }
+
+    private T GetValue<T>(T items) where T : IReadOnlyCollection<CustomItem>
+    {
+        foreach (var customItem in items)
+        {
+            GetValue(customItem);
+        }
+
+        return items;
     }
 
     private void GetValue(CustomItem item)

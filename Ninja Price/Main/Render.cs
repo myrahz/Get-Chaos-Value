@@ -42,7 +42,8 @@ public partial class Main
     public InventoryElement InventoryPanel { get; set; }
     public Element HagglePanel { get; set; }
 
-    public CustomItem HoveredItem { get; set; }
+    private CustomItem HoveredItem;
+    private RectangleF? HoveredItemTooltipRect;
 
     private readonly CachedValue<List<ItemOnGround>> _slowGroundItems;
     private readonly CachedValue<List<ItemOnGround>> _groundItems;
@@ -104,7 +105,7 @@ public partial class Main
             }
         }
 
-        result.ForEach(x => GetValue(x.Item));
+        GetValue(result.Select(x => x.Item));
 
         return result;
     }
@@ -139,111 +140,99 @@ public partial class Main
             return;
         }
 
-        try // Im lazy and just want to surpress all errors produced
+        // only update if the time between last update is more than AutoReloadTimer interval
+        if (Settings.DataSourceSettings.AutoReload && Settings.DataSourceSettings.LastUpdateTime.AddMinutes(Settings.DataSourceSettings.ReloadPeriod.Value) < DateTime.Now)
         {
-            // only update if the time between last update is more than AutoReloadTimer interval
-            if (Settings.DataSourceSettings.AutoReload && Settings.DataSourceSettings.LastUpdateTime.AddMinutes(Settings.DataSourceSettings.ReloadPeriod.Value) < DateTime.Now)
+            StartDataReload(Settings.DataSourceSettings.League.Value, true);
+            Settings.DataSourceSettings.LastUpdateTime = DateTime.Now;
+        }
+
+        if (Settings.DebugSettings.EnableDebugLogging) LogMessage($"{GetCurrentMethod()}.Loop() is Alive", 5, Color.LawnGreen);
+
+        if (Settings.DebugSettings.EnableDebugLogging)
+            LogMessage($"{GetCurrentMethod()}: Selected League: {Settings.DataSourceSettings.League.Value}", 5, Color.White);
+
+        var tabType = StashPanel.VisibleStash?.InvType;
+
+        // Everything is updated, lets check if we should draw
+        if (ShouldUpdateValues())
+        {
+            // Format stash items
+            ItemList = StashPanel.IsVisible && tabType != null ? StashPanel.VisibleStash?.VisibleInventoryItems?.ToList() ?? [] : [];
+            if (ItemList.Count == 0)
             {
-                StartDataReload(Settings.DataSourceSettings.League.Value, true);
-                Settings.DataSourceSettings.LastUpdateTime = DateTime.Now;
+                if (Settings.LeagueSpecificSettings.ShowRitualWindowPrices &&
+                    GameController.Game.IngameState.IngameUi.RitualWindow is { IsVisible: true, Items: { Count: > 0 } ritualItems })
+                {
+                    ItemList = ritualItems;
+                }
+                else if (Settings.LeagueSpecificSettings.ShowVillageRewardWindowPrices &&
+                         GameController.Game.IngameState.IngameUi.VillageRewardWindow is { IsVisible: true, Items: { Count: > 0 } villageItems })
+                {
+                    ItemList = villageItems;
+                }
+                else if (Settings.LeagueSpecificSettings.ShowPurchaseWindowPrices &&
+                         GameController.Game.IngameState.IngameUi.PurchaseWindow?.TabContainer?.VisibleStash is { IsVisible: true, VisibleInventoryItems: { Count: > 0 } purchaseWindowItems })
+                {
+                    ItemList = purchaseWindowItems.ToList();
+                }
+                else if (Settings.LeagueSpecificSettings.ShowPurchaseWindowPrices &&
+                         GameController.Game.IngameState.IngameUi.PurchaseWindowHideout?.TabContainer?.VisibleStash is { IsVisible: true, VisibleInventoryItems: { Count: > 0 } hideoutPurchaseWindowItems })
+                {
+                    ItemList = hideoutPurchaseWindowItems.ToList();
+                }
             }
 
-            if (Settings.DebugSettings.EnableDebugLogging) LogMessage($"{GetCurrentMethod()}.Loop() is Alive", 5, Color.LawnGreen);
+            FormattedItemList = FormatItems(ItemList);
 
             if (Settings.DebugSettings.EnableDebugLogging)
-                LogMessage($"{GetCurrentMethod()}: Selected League: {Settings.DataSourceSettings.League.Value}", 5, Color.White);
+                LogMessage($"{GetCurrentMethod()}.Render() Looping if (ShouldUpdateValues())", 5,
+                    Color.LawnGreen);
 
-            var tabType = StashPanel.VisibleStash?.InvType;
+            GetValue(FormattedItemList);
+        }
 
-            // Everything is updated, lets check if we should draw
-            if (ShouldUpdateValues())
+        // Gather all information needed before rendering as we only want to iterate through the list once
+        ItemsToDrawList = [];
+        foreach (var item in FormattedItemList)
+        {
+            if (item == null || item.Element.Address == 0) continue; // Item is fucked, skip
+            if (!item.Element.IsVisible && item.ItemType != ItemTypes.None)
+                continue; // Disregard non visible items as that usually means they aren't part of what we want to look at
+
+            StashTabValue += item.PriceData.MinChaosValue;
+            ItemsToDrawList.Add(item);
+        }
+        if (InventoryPanel.IsVisible)
+        {
+            if (ShouldUpdateValuesInventory())
             {
-                // Format stash items
-                ItemList = StashPanel.IsVisible && tabType != null ? StashPanel.VisibleStash?.VisibleInventoryItems?.ToList() ?? [] : [];
-                if (ItemList.Count == 0)
-                {
-                    if (Settings.LeagueSpecificSettings.ShowRitualWindowPrices &&
-                        GameController.Game.IngameState.IngameUi.RitualWindow is { IsVisible: true, Items: { Count: > 0 } ritualItems })
-                    {
-                        ItemList = ritualItems;
-                    }
-                    else if (Settings.LeagueSpecificSettings.ShowVillageRewardWindowPrices &&
-                             GameController.Game.IngameState.IngameUi.VillageRewardWindow is { IsVisible: true, Items: { Count: > 0 } villageItems })
-                    {
-                        ItemList = villageItems;
-                    }
-                    else if (Settings.LeagueSpecificSettings.ShowPurchaseWindowPrices &&
-                             GameController.Game.IngameState.IngameUi.PurchaseWindow?.TabContainer?.VisibleStash is { IsVisible: true, VisibleInventoryItems: { Count: > 0 } purchaseWindowItems })
-                    {
-                        ItemList = purchaseWindowItems.ToList();
-                    }
-                    else if (Settings.LeagueSpecificSettings.ShowPurchaseWindowPrices &&
-                             GameController.Game.IngameState.IngameUi.PurchaseWindowHideout?.TabContainer?.VisibleStash is { IsVisible: true, VisibleInventoryItems: { Count: > 0 } hideoutPurchaseWindowItems })
-                    {
-                        ItemList = hideoutPurchaseWindowItems.ToList();
-                    }
-                }
-
-                FormattedItemList = FormatItems(ItemList);
+                // Format Inventory Items
+                InventoryItemList = GetInventoryItems();
+                FormattedInventoryItemList = FormatItems(InventoryItemList);
 
                 if (Settings.DebugSettings.EnableDebugLogging)
-                    LogMessage($"{GetCurrentMethod()}.Render() Looping if (ShouldUpdateValues())", 5,
+                    LogMessage($"{GetCurrentMethod()}.Render() Looping if (ShouldUpdateValuesInventory())", 5,
                         Color.LawnGreen);
 
-                FormattedItemList.ForEach(GetValue);
+                GetValue(FormattedInventoryItemList);
             }
 
             // Gather all information needed before rendering as we only want to iterate through the list once
-            ItemsToDrawList = [];
-            foreach (var item in FormattedItemList)
+            InventoryItemsToDrawList = new List<CustomItem>();
+            foreach (var item in FormattedInventoryItemList)
             {
                 if (item == null || item.Element.Address == 0) continue; // Item is fucked, skip
                 if (!item.Element.IsVisible && item.ItemType != ItemTypes.None)
                     continue; // Disregard non visible items as that usually means they aren't part of what we want to look at
 
-                StashTabValue += item.PriceData.MinChaosValue;
-                ItemsToDrawList.Add(item);
-            }
-            if (InventoryPanel.IsVisible)
-            {
-                if (ShouldUpdateValuesInventory())
-                {
-                    // Format Inventory Items
-                    InventoryItemList = GetInventoryItems();
-                    FormattedInventoryItemList = FormatItems(InventoryItemList);
-
-                    if (Settings.DebugSettings.EnableDebugLogging)
-                        LogMessage($"{GetCurrentMethod()}.Render() Looping if (ShouldUpdateValuesInventory())", 5,
-                            Color.LawnGreen);
-
-                    FormattedInventoryItemList.ForEach(GetValue);
-                }
-
-                // Gather all information needed before rendering as we only want to iterate through the list once
-                InventoryItemsToDrawList = new List<CustomItem>();
-                foreach (var item in FormattedInventoryItemList)
-                {
-                    if (item == null || item.Element.Address == 0) continue; // Item is fucked, skip
-                    if (!item.Element.IsVisible && item.ItemType != ItemTypes.None)
-                        continue; // Disregard non visible items as that usually means they aren't part of what we want to look at
-
-                    InventoryTabValue += item.PriceData.MinChaosValue;
-                    InventoryItemsToDrawList.Add(item);
-                }
-            }
-
-            GetHoveredItem(); // Get information for the hovered item
-            DrawGraphics();
-        }
-        catch (Exception e)
-        {
-            // ignored
-            if (Settings.DebugSettings.EnableDebugLogging)
-            {
-                LogMessage("Error in: Main Render Loop, restart PoEHUD.", 5, Color.Red);
-                LogMessage(e.ToString(), 5, Color.Orange);
+                InventoryTabValue += item.PriceData.MinChaosValue;
+                InventoryItemsToDrawList.Add(item);
             }
         }
+
+        GetHoveredItem(); // Get information for the hovered item
+        DrawGraphics();
     }
 
     public void DrawGraphics()
@@ -254,6 +243,7 @@ public partial class Main
         ProcessDivineFontRewards();
         DrawVillageUniqueWindow();
         ShowSanctumOfferPrices();
+        ProcessUltimatumPanel();
         ProcessHoveredItem();
         VisibleInventoryValue();
 
@@ -294,22 +284,27 @@ public partial class Main
                 foreach (var customItem in ItemsToDrawList)
                 {
                     if (customItem.ItemType == ItemTypes.None) continue;
-                    var text = customItem.PriceData.MinChaosValue.FormatNumber(Settings.VisualPriceSettings.SignificantDigits.Value);
-                    var textSize = Graphics.MeasureText(text);
-                    var topRight = customItem.Element.GetClientRectCache.TopRight.ToVector2Num();
-                    var rect = new RectangleF(topRight.X - textSize.X, topRight.Y, textSize.X, textSize.Y);
-                    if (rect.Intersects(HoveredItem?.Element?.Tooltip?.GetClientRectCache ?? default))
-                    {
-                        continue;
-                    }
-                    Graphics.DrawTextWithBackground(text,
-                        topRight,
-                        customItem.PriceData.MinChaosValue >= Settings.VisualPriceSettings.ValuableColorThreshold
-                            ? Settings.VisualPriceSettings.ValuableColor
-                            : Settings.VisualPriceSettings.FontColor, FontAlign.Right, Color.Black);
+                    DrawItemPriceInline(customItem);
                 }
             }
         }
+    }
+
+    private void DrawItemPriceInline(CustomItem customItem)
+    {
+        var text = customItem.PriceData.MinChaosValue.FormatNumber(Settings.VisualPriceSettings.SignificantDigits.Value);
+        var textSize = Graphics.MeasureText(text);
+        var topRight = customItem.Element.GetClientRectCache.TopRight.ToVector2Num();
+        if (HoveredItemTooltipRect?.Intersects(new RectangleF(topRight.X - textSize.X, topRight.Y, textSize.X, textSize.Y)) ?? false)
+        {
+            return;
+        }
+
+        Graphics.DrawTextWithBackground(text,
+            topRight,
+            customItem.PriceData.MinChaosValue >= Settings.VisualPriceSettings.ValuableColorThreshold
+                ? Settings.VisualPriceSettings.ValuableColor
+                : Settings.VisualPriceSettings.FontColor, FontAlign.Right, Color.Black);
     }
 
     private void ProcessHoveredItem()
@@ -455,20 +450,7 @@ public partial class Main
             {
                 var pos = new Vector2(Settings.StashValueSettings.PositionX.Value, Settings.StashValueSettings.PositionY.Value);
                 var chaosValue = StashTabValue;
-                var topValueItems = ItemsToDrawList
-                    .Where(x => x.PriceData.MinChaosValue != 0)
-                    .GroupBy(x => (x.PriceData.DetailsId, x.BaseName, x.UniqueName, x.ItemType, x.CapturedMonsterName))
-                    .Select(group => new CustomItem
-                    {
-                        PriceData = { MinChaosValue = group.Sum(i => i.PriceData.MinChaosValue) },
-                        CurrencyInfo = { StackSize = group.Sum(i => i.CurrencyInfo.StackSize) },
-                        BaseName = group.Key.ItemType switch
-                        {
-                            ItemTypes.Beast => group.Key.CapturedMonsterName,
-                            _ => string.IsNullOrWhiteSpace(group.Key.UniqueName) ? group.Key.BaseName : group.Key.UniqueName,
-                        },
-                    })
-                    .OrderByDescending(x => x.PriceData.MinChaosValue)
+                var topValueItems = GetTopValueItems(ItemsToDrawList)
                     .Take(Settings.StashValueSettings.TopValuedItemCount.Value)
                     .ToList();
 
@@ -485,6 +467,24 @@ public partial class Main
                 LogMessage(e.ToString(), 5, Color.Orange);
             }
         }
+    }
+
+    private static IEnumerable<CustomItem> GetTopValueItems(List<CustomItem> items)
+    {
+        return items
+            .Where(x => x.PriceData.MinChaosValue != 0)
+            .GroupBy(x => (x.PriceData.DetailsId, x.BaseName, x.UniqueName, x.ItemType, x.CapturedMonsterName))
+            .Select(group => new CustomItem
+            {
+                PriceData = { MinChaosValue = group.Sum(i => i.PriceData.MinChaosValue) },
+                CurrencyInfo = { StackSize = group.Sum(i => i.CurrencyInfo.StackSize) },
+                BaseName = group.Key.ItemType switch
+                {
+                    ItemTypes.Beast => group.Key.CapturedMonsterName,
+                    _ => string.IsNullOrWhiteSpace(group.Key.UniqueName) ? group.Key.BaseName : group.Key.UniqueName,
+                },
+            })
+            .OrderByDescending(x => x.PriceData.MinChaosValue);
     }
 
     private void DrawWorthWidget(double chaosValue, Vector2 pos, int significantDigits, Color textColor, bool drawBackground, List<CustomItem> topValueItems) => DrawWorthWidget("", false, chaosValue, pos, significantDigits, textColor, drawBackground, topValueItems);
@@ -580,7 +580,7 @@ public partial class Main
         };
 
         var inventory = HagglePanel.GetChildFromIndices(8, 1, 0, 0);
-        var itemList = inventory?.GetChildrenAs<NormalInventoryItem>().Skip(1).ToList() ?? new List<NormalInventoryItem>();
+        var itemList = inventory?.GetChildrenAs<NormalInventoryItem>().Skip(1).ToList() ?? [];
         if (haggleType == Gamble)
         {
             if (Settings.DebugSettings.EnableDebugLogging)
@@ -615,8 +615,7 @@ public partial class Main
 
         if (haggleType == Haggle)
         {
-            var formattedItemList = FormatItems(itemList);
-            formattedItemList.ForEach(GetValue);
+            var formattedItemList = GetValue(FormatItems(itemList));
             var tooltipRect = HoveredItem?.Element.AsObject<HoverItemIcon>()?.Tooltip?.GetClientRect() ?? new RectangleF(0, 0, 0, 0);
             foreach (var customItem in formattedItemList)
             {
@@ -665,10 +664,8 @@ public partial class Main
             return;
         }
 
-        var yourFormattedItems = FormatItems(yourItems);
-        var theirFormatterItems = FormatItems(theirItems);
-        yourFormattedItems.ForEach(GetValue);
-        theirFormatterItems.ForEach(GetValue);
+        var yourFormattedItems = GetValue(FormatItems(yourItems));
+        var theirFormatterItems = GetValue(FormatItems(theirItems));
         var yourTradeWindowValue = yourFormattedItems.Sum(x => x.PriceData.MinChaosValue);
         var theirTradeWindowValue = theirFormatterItems.Sum(x => x.PriceData.MinChaosValue);
         var textPosition = new Vector2(element.GetClientRectCache.Right, element.GetClientRectCache.Center.Y - ImGui.GetTextLineHeight() * 3) 
@@ -678,7 +675,7 @@ public partial class Main
         var diff = theirTradeWindowValue - yourTradeWindowValue;
         DrawWorthWidget("Profit/Loss\n", true, diff, textPosition, 2, diff switch { > 0 => Color.Green, 0 => Settings.VisualPriceSettings.FontColor, < 0 => Color.Red, double.NaN => Color.Purple }, true, []);
         textPosition.Y += ImGui.GetTextLineHeight() * 3;
-        DrawWorthWidget("Yours\n", true, yourTradeWindowValue, textPosition, 2, Settings.VisualPriceSettings.FontColor, true, new List<CustomItem>());
+        DrawWorthWidget("Yours\n", true, yourTradeWindowValue, textPosition, 2, Settings.VisualPriceSettings.FontColor, true, []);
     }
 
     private void ProcessDivineFontRewards()
@@ -1018,6 +1015,66 @@ public partial class Main
         }
         
         ImGui.End();
+    }
+
+    private void ProcessUltimatumPanel()
+    {
+        var ultimatumPanel = GameController.IngameState.IngameUi.UltimatumPanel;
+        if (!Settings.LeagueSpecificSettings.ShowUltimatumOverlay || ultimatumPanel is not
+            {
+                IsVisible: true
+            })
+            return;
+
+        var earnedRewardsInventory = ultimatumPanel.EarnedRewardsInventory;
+        var earnedItems = earnedRewardsInventory?.VisibleInventoryItems ?? [];
+        var earnedItemsFormatted = GetValue(FormatItems(earnedItems));
+
+        if (earnedRewardsInventory is { IsVisible: true })
+        {
+            foreach (var customItem in earnedItemsFormatted)
+            {
+                if (customItem.PriceData.MinChaosValue > 0)
+                    DrawItemPriceInline(customItem);
+            }
+        }
+        else
+        {
+            var itemList = ultimatumPanel.NextRewardInventory?.VisibleInventoryItems ?? [];
+
+            var formattedItemList = GetValue(FormatItems(itemList));
+
+            foreach (var customItem in formattedItemList)
+            {
+                if (customItem.PriceData.MinChaosValue > 0)
+                    DrawItemPriceInline(customItem);
+            }
+
+            itemList = ultimatumPanel.LastRewardInventory?.VisibleInventoryItems ?? [];
+
+            formattedItemList = GetValue(FormatItems(itemList));
+
+            foreach (var customItem in formattedItemList)
+            {
+                if (customItem.PriceData.MinChaosValue > 0)
+                    DrawItemPriceInline(customItem);
+            }
+
+            var initialString = "(cached)\n";
+            if (GameController.IngameState.ServerData.NPCInventories.FirstOrDefault(x => x.Inventory.InventType == InventoryTypeE.UltimatumEarnedRewards)?.Inventory is { } inventory)
+            {
+                var items = inventory.Items.Select(x => new CustomItem(x, null)).ToList();
+                GetValue(items);
+                earnedItemsFormatted = items;
+                initialString = "";
+            }
+
+            DrawWorthWidget(initialString, false,
+                earnedItemsFormatted.Sum(x => x.PriceData.MinChaosValue),
+                ultimatumPanel.OpenEarnedRewardsInventoryButton.GetClientRectCache.TopRight.ToVector2Num(),
+                2, Color.White, true,
+                GetTopValueItems(earnedItemsFormatted).Take(10).ToList());
+        }
     }
 
     private bool TryGetArtifactPrice(CustomItem item, out double amount, out string artifactName)

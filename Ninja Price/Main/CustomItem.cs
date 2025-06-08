@@ -86,6 +86,15 @@ public class CustomItem
         ComputeType(null);
     }
 
+    public CustomItem(string uniqueName, ItemTypes type)
+    {
+        UniqueName = uniqueName;
+        ItemType = type;
+        ClassName = "";
+        BaseName = "";
+        UniqueNameCandidates = [];
+    }
+
     public CustomItem(Entity itemEntity, Element element)
     {
         try
@@ -248,10 +257,15 @@ public class CustomItem
         {
             ItemType = ItemTypes.Memory;
         }
-        else if (ClassName == "MiscMapItem" && Path.StartsWith("Metadata/Items/MapFragments/Primordial/", StringComparison.Ordinal) &&
+        else if (ClassName == "MiscMapItem" &&
+                 Path.StartsWith("Metadata/Items/MapFragments/Primordial/", StringComparison.Ordinal) &&
                  Path.EndsWith("Key", StringComparison.Ordinal))
         {
             ItemType = ItemTypes.Invitation;
+        }
+        else if (ClassName == "MiscMapItem" && Path == "Metadata/Items/Ultimatum/ItemisedTrial")
+        {
+            ItemType = ItemTypes.InscribedUltimatum;
         }
         else if (ClassName == "MapFragment" && Path.StartsWith("Metadata/Items/Scarabs/"))
         {
@@ -287,7 +301,7 @@ public class CustomItem
         {
             ItemType = ItemTypes.Catalyst;
         }
-        else if (BaseName.Contains("Astragali") || BaseName.Contains("Burial Medallion") || BaseName.Contains("Scrap Metal") || BaseName.Contains("Exotic Coinage"))     
+        else if (BaseName.Contains("Astragali") || BaseName.Contains("Burial Medallion") || BaseName.Contains("Scrap Metal") || BaseName.Contains("Exotic Coinage"))
         {
             ItemType = ItemTypes.Artifact;
         }

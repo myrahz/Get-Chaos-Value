@@ -29,7 +29,6 @@ public partial class Main
     public Stopwatch InventoryUpdateTimer = Stopwatch.StartNew();
     public double StashTabValue { get; set; }
     public double InventoryTabValue { get; set; }
-    public double? DivineDalue { get; set; }
     public List<NormalInventoryItem> ItemList { get; set; } = new List<NormalInventoryItem>();
     public List<CustomItem> FormattedItemList { get; set; } = new List<CustomItem>();
 
@@ -392,6 +391,7 @@ public partial class Main
             case ItemTypes.Invitation:
             case ItemTypes.SkillGem:
             case ItemTypes.ClusterJewel:
+            case ItemTypes.InscribedUltimatum:
             case ItemTypes.Memory:
             case ItemTypes.Beast:
                 if (priceInDivines >= 0.1)
@@ -490,9 +490,8 @@ public partial class Main
     private void DrawWorthWidget(double chaosValue, Vector2 pos, int significantDigits, Color textColor, bool drawBackground, List<CustomItem> topValueItems) => DrawWorthWidget("", false, chaosValue, pos, significantDigits, textColor, drawBackground, topValueItems);
     private void DrawWorthWidget(string initialString, bool indent, double chaosValue, Vector2 pos, int significantDigits, Color textColor, bool drawBackground, List<CustomItem> topValueItems)
     {
-        var text = $"{initialString}{(indent ? "\t" : "")}Chaos: {chaosValue.FormatNumber(significantDigits)}" + (DivineDalue != null
-            ? $"\n{(indent ? "\t" : "")}Divine: {(chaosValue / DivineDalue.Value).FormatNumber(significantDigits)}"
-            : "");
+        var text = $"{initialString}{(indent ? "\t" : "")}Chaos: {chaosValue.FormatNumber(significantDigits)}\n" +
+                   $"{(indent ? "\t" : "")}Divine: {(chaosValue / DivinePrice).FormatNumber(significantDigits)}";
         if (topValueItems.Count > 0)
         {
             var maxChaosValueLength = topValueItems.Max(x => x.PriceData.MinChaosValue.FormatNumber(2, forceDecimals: true).Length);

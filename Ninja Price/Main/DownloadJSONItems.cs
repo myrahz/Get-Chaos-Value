@@ -98,8 +98,8 @@ public partial class Main
                 await File.WriteAllTextAsync(metadataPath, JsonConvert.SerializeObject(new LeagueMetadata { LastLoadTime = DateTime.UtcNow }));
 
                 LogMessage("Finished Gathering Data from Poe.Ninja.", 5);
+                RemoveUnlikelyItems(newData);
                 CollectedData = newData;
-                DivineDalue = CollectedData.Currency.Lines.Find(x => x.CurrencyTypeName == "Divine Orb")?.ChaosEquivalent;
                 LogMessage("Updated CollectedData.", 5);
             }
             finally
@@ -107,6 +107,15 @@ public partial class Main
                 Interlocked.Exchange(ref _updating, 0);
             }
         });
+    }
+
+    private void RemoveUnlikelyItems(CollectiveApiData data)
+    {
+        data.UniqueAccessories.Lines.RemoveAll(x => x.DetailsId.Contains("-relic"));
+        data.UniqueArmours.Lines.RemoveAll(x => x.DetailsId.Contains("-relic"));
+        data.UniqueFlasks.Lines.RemoveAll(x => x.DetailsId.Contains("-relic"));
+        data.UniqueJewels.Lines.RemoveAll(x => x.DetailsId.Contains("-relic"));
+        data.UniqueWeapons.Lines.RemoveAll(x => x.DetailsId.Contains("-relic"));
     }
 
     private async Task<bool> IsLocalCacheStale(string metadataPath)

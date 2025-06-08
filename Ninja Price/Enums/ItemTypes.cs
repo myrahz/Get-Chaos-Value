@@ -31,4 +31,5 @@ public enum ItemTypes
     Memory,
     Beast,
     KalguuranRune,
+    InscribedUltimatum,
 }

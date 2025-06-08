@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using ExileCore;
+using ExileCore.PoEMemory.FilesInMemory;
 using Color = SharpDX.Color;
 
 namespace Ninja_Price.Main;
@@ -116,6 +117,20 @@ public partial class Main
         }
 
         return items;
+    }
+
+    private ItemTypes? FindUniqueType(string name)
+    {
+        return name switch
+        {
+            _ when CollectedData.UniqueAccessories.Lines.Find(x => x.Name == name) is { } => ItemTypes.UniqueAccessory,
+            _ when CollectedData.UniqueArmours.Lines.Find(x => x.Name == name) is { } => ItemTypes.UniqueArmour,
+            _ when CollectedData.UniqueFlasks.Lines.Find(x => x.Name == name) is { } => ItemTypes.UniqueFlask,
+            _ when CollectedData.UniqueJewels.Lines.Find(x => x.Name == name) is { } => ItemTypes.UniqueJewel,
+            _ when CollectedData.UniqueWeapons.Lines.Find(x => x.Name == name) is { } => ItemTypes.UniqueWeapon,
+            _ when CollectedData.UniqueMaps.Lines.Find(x => x.Name == name) is { } => ItemTypes.UniqueMap,
+            _ => null,
+        };
     }
 
     private void GetValue(CustomItem item)
@@ -336,8 +351,7 @@ public partial class Main
                         break;
                     case ItemTypes.UniqueAccessory:
                         var uniqueAccessorySearch = CollectedData.UniqueAccessories.Lines.FindAll(x =>
-                            (x.Name == item.UniqueName || item.UniqueNameCandidates.Contains(x.Name)) &&
-                            !x.DetailsId.Contains("-relic"));
+                            x.Name == item.UniqueName || item.UniqueNameCandidates.Contains(x.Name));
                         if (uniqueAccessorySearch.Count == 1)
                         {
                             item.PriceData.MinChaosValue = uniqueAccessorySearch[0].ChaosValue ?? 0;
@@ -361,8 +375,7 @@ public partial class Main
                     case ItemTypes.UniqueArmour:
                     {
                         var allLinksLines = CollectedData.UniqueArmours.Lines.Where(x =>
-                            (x.Name == item.UniqueName || item.UniqueNameCandidates.Contains(x.Name)) &&
-                            !x.DetailsId.Contains("-relic"));
+                            x.Name == item.UniqueName || item.UniqueNameCandidates.Contains(x.Name));
                         var uniqueArmourSearchLinks = item.LargestLink switch
                         {
                             < 5 => allLinksLines.Where(x => x.Links != 5 && x.Links != 6).ToList(),
@@ -394,8 +407,7 @@ public partial class Main
                     }
                     case ItemTypes.UniqueFlask:
                         var uniqueFlaskSearch = CollectedData.UniqueFlasks.Lines.FindAll(x =>
-                            (x.Name == item.UniqueName || item.UniqueNameCandidates.Contains(x.Name)) &&
-                            !x.DetailsId.Contains("-relic"));
+                            x.Name == item.UniqueName || item.UniqueNameCandidates.Contains(x.Name));
                         if (uniqueFlaskSearch.Count == 1)
                         {
                             item.PriceData.MinChaosValue = uniqueFlaskSearch[0].ChaosValue ?? 0;
@@ -418,8 +430,7 @@ public partial class Main
                         break;
                     case ItemTypes.UniqueJewel:
                         var uniqueJewelSearch = CollectedData.UniqueJewels.Lines.FindAll(x =>
-                            (x.Name == item.UniqueName || item.UniqueNameCandidates.Contains(x.Name)) &&
-                            !x.DetailsId.Contains("-relic"));
+                            x.Name == item.UniqueName || item.UniqueNameCandidates.Contains(x.Name));
                         if (uniqueJewelSearch.Count == 1)
                         {
                             item.PriceData.MinChaosValue = uniqueJewelSearch[0].ChaosValue ?? 0;
@@ -487,8 +498,7 @@ public partial class Main
                     case ItemTypes.UniqueWeapon:
                     {
                         var allLinksLines = CollectedData.UniqueWeapons.Lines.Where(x =>
-                            (x.Name == item.UniqueName || item.UniqueNameCandidates.Contains(x.Name)) &&
-                            !x.DetailsId.Contains("-relic"));
+                            x.Name == item.UniqueName || item.UniqueNameCandidates.Contains(x.Name));
                         var uniqueArmourSearchLinks = item.LargestLink switch
                         {
                             < 5 => allLinksLines.Where(x => x.Links != 5 && x.Links != 6).ToList(),
@@ -588,6 +598,58 @@ public partial class Main
                             item.PriceData.DetailsId = runeSearch.detailsId;
                         }
 
+                        break;
+                    case ItemTypes.InscribedUltimatum:
+                        if (item.Entity.TryGetComponent<UltimatumTrial>(out var ultimatumTrial))
+                        {
+                            switch (ultimatumTrial.Reward.RewardType)
+                            {
+                                case UltimatumItemisedRewardType.Mirror:
+                                {
+                                    var line = CollectedData.Currency.FindLine("Mirror of Kalandra", Settings.DataSourceSettings.UseChaosEquivalentDataForCurrency) ?? new Currency.SearchResult(100000, 0, "mirror");
+                                    item.PriceData.MinChaosValue = line.ChaosEquivalent;
+                                    item.PriceData.ChangeInLast7Days = line.PriceChange;
+                                    item.PriceData.DetailsId = "ultimatum-inscribed-mirror";
+                                    break;
+                                }
+                                case UltimatumItemisedRewardType.Currency:
+                                {
+                                    var sacItem = new CustomItem(ultimatumTrial.Reward.SacrificeItem) { CurrencyInfo = { StackSize = ultimatumTrial.Reward.SacrificeAmount } };
+                                    GetValue(sacItem);
+                                    item.PriceData.MinChaosValue = sacItem.PriceData.MinChaosValue;
+                                    item.PriceData.ChangeInLast7Days = sacItem.PriceData.ChangeInLast7Days;
+                                    item.PriceData.DetailsId = $"ultimatum-inscribed-currency-{sacItem.PriceData.DetailsId}";
+                                    break;
+                                }
+                                case UltimatumItemisedRewardType.DivinationCard:
+                                {
+                                    var sacItem = new CustomItem(ultimatumTrial.SacrificedItemType)
+                                    {
+                                        CurrencyInfo =
+                                        {
+                                            StackSize = ((ultimatumTrial.SacrificedItemType.CurrencyInfo?.MaxStackSize ?? 1) + 1) / 2
+                                        }
+                                    };
+                                    GetValue(sacItem);
+                                    item.PriceData.MinChaosValue = sacItem.PriceData.MinChaosValue;
+                                    item.PriceData.ChangeInLast7Days = sacItem.PriceData.ChangeInLast7Days;
+                                    item.PriceData.DetailsId = $"ultimatum-inscribed-div-{sacItem.PriceData.DetailsId}";
+                                    break;
+                                }
+                                case UltimatumItemisedRewardType.Unique:
+                                {
+                                    var sacUniqueType = FindUniqueType(ultimatumTrial.SacrificedItemWord.Text);
+                                    var gainUniqueType = FindUniqueType(ultimatumTrial.RewardItemWord.Text);
+                                    var sacItem = new CustomItem(ultimatumTrial.SacrificedItemWord.Text, sacUniqueType ?? ItemTypes.None) { MapInfo = { MapTier = 16 } };
+                                    GetValue(sacItem);
+                                    var gainItem = new CustomItem(ultimatumTrial.RewardItemWord.Text, gainUniqueType ?? ItemTypes.None) { MapInfo = { MapTier = 16 } };
+                                    GetValue(gainItem);
+                                    item.PriceData.MinChaosValue = gainItem.PriceData.MinChaosValue - sacItem.PriceData.MinChaosValue;
+                                    item.PriceData.DetailsId = $"ultimatum-inscribed-unique-{sacItem.PriceData.DetailsId}-{gainItem.PriceData.DetailsId}";
+                                    break;
+                                }
+                            }
+                        }
                         break;
                 }
             }

@@ -65,7 +65,7 @@ public class DataSourceSettings
 [Submenu(CollapsedByDefault = true)]
 public class LeagueSpecificSettings
 {
-    public ToggleNode ShowCoffinPrices { get; set; } = new(true);
+    public ToggleNode ShowMercenaryInventoryPrices { get; set; } = new(true);
     public ToggleNode ShowRitualWindowPrices { get; set; } = new(true);
     public ToggleNode ShowVillageRewardWindowPrices { get; set; } = new(true);
     public ToggleNode ShowPurchaseWindowPrices { get; set; } = new(true);

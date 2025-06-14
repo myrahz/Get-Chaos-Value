@@ -52,11 +52,7 @@ public partial class Main
     {
         _slowGroundItems = new TimeCache<List<ItemOnGround>>(GetItemsOnGroundSlow, 500);
         _groundItems = new FrameCache<List<ItemOnGround>>(CacheUtils.RememberLastValue(GetItemsOnGround, new List<ItemOnGround>()));
-        _disenchantCache = new TimeCache<List<VillageUniqueDisenchantValue>>(() =>
-        {
-            GameController.Files.VillageUniqueDisenchantValues.ReloadIfEmpty();
-            return GameController.Files.VillageUniqueDisenchantValues.EntriesList;
-        }, 1000);
+        _disenchantCache = new TimeCache<List<VillageUniqueDisenchantValue>>(() => GameController.Files.VillageUniqueDisenchantValues.EntriesList, 1000);
     }
 
     private List<ItemOnGround> GetItemsOnGround(List<ItemOnGround> previousValue)
@@ -160,6 +156,11 @@ public partial class Main
             ItemList = StashPanel.IsVisible && tabType != null ? StashPanel.VisibleStash?.VisibleInventoryItems?.ToList() ?? [] : [];
             if (ItemList.Count == 0)
             {
+                if (Settings.LeagueSpecificSettings.ShowMercenaryInventoryPrices &&
+                    GameController.Game.IngameState.IngameUi.MercenaryEncounterWindow is { IsVisible: true, } mercenaryEncounterWindow)
+                {
+                    ItemList = mercenaryEncounterWindow.Inventories.SelectMany(x => x.VisibleInventoryItems).ToList();
+                }
                 if (Settings.LeagueSpecificSettings.ShowRitualWindowPrices &&
                     GameController.Game.IngameState.IngameUi.RitualWindow is { IsVisible: true, Items: { Count: > 0 } ritualItems })
                 {
@@ -274,6 +275,7 @@ public partial class Main
         }
         else if (Settings.LeagueSpecificSettings.ShowRitualWindowPrices && GameController.IngameState.IngameUi.RitualWindow.IsVisible ||
                  Settings.LeagueSpecificSettings.ShowVillageRewardWindowPrices && GameController.IngameState.IngameUi.VillageRewardWindow.IsVisible ||
+                 Settings.LeagueSpecificSettings.ShowMercenaryInventoryPrices && GameController.IngameState.IngameUi.MercenaryEncounterWindow.IsVisible ||
                  Settings.LeagueSpecificSettings.ShowPurchaseWindowPrices && (GameController.IngameState.IngameUi.PurchaseWindow.IsVisible ||
                                                                               GameController.IngameState.IngameUi.PurchaseWindowHideout.IsVisible))
         {
@@ -870,7 +872,6 @@ public partial class Main
             switch (processingType)
             {
                 case GroundItemProcessingType.WorldItem:
-                case GroundItemProcessingType.CollectableCorpse when Settings.LeagueSpecificSettings.ShowCoffinPrices:
                 {
                     if (Settings.SoundNotificationSettings.Enabled && 
                         !_soundPlayedTracker.ContainsKey(item.EntityId))
@@ -916,8 +917,7 @@ public partial class Main
 
                         if (Settings.GroundItemSettings.PriceItemsOnGround &&
                             (!Settings.GroundItemSettings.OnlyPriceUniquesOnGround ||
-                             item.Rarity == ItemRarity.Unique ||
-                             processingType == GroundItemProcessingType.CollectableCorpse))
+                             item.Rarity == ItemRarity.Unique))
                         {
                             if (item.PriceData.MinChaosValue > 0)
                             {

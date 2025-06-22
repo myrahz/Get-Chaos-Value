@@ -7,6 +7,7 @@ using ExileCore.Shared.Enums;
 using ExileCore.Shared.Helpers;
 using ImGuiNET;
 using Ninja_Price.Enums;
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -17,6 +18,7 @@ using System.Net;
 using System.Numerics;
 using System.Text.RegularExpressions;
 using ExileCore.PoEMemory.FilesInMemory;
+using static Ninja_Price.Enums.HaggleTypes;
 using static Ninja_Price.Enums.HaggleTypes.HaggleType;
 using Color = SharpDX.Color;
 using RectangleF = SharpDX.RectangleF;
@@ -43,6 +45,7 @@ public partial class Main
 
     private CustomItem HoveredItem;
     private RectangleF? HoveredItemTooltipRect;
+    public Element RitualPanel { get; set; }
 
     private readonly CachedValue<List<ItemOnGround>> _slowGroundItems;
     private readonly CachedValue<List<ItemOnGround>> _groundItems;
@@ -102,6 +105,7 @@ public partial class Main
 
         GetValue(result.Select(x => x.Item));
 
+        result.ForEach(x => GetValue(x.Item));
         return result;
     }
 
@@ -126,6 +130,7 @@ public partial class Main
         };
         InventoryPanel = GameController.Game.IngameState.IngameUi.InventoryPanel;
         HagglePanel = GameController.Game.IngameState.IngameUi.HaggleWindow;
+        RitualPanel = GameController.Game.IngameState.IngameUi.RitualWindow;
 
         #endregion
 
@@ -373,15 +378,19 @@ public partial class Main
                 if (priceInDivines >= 0.1)
                 {
                     var maxDivinePriceText = (HoveredItem.PriceData.MaxChaosValue / DivinePrice).FormatNumber(2);
-                    AddText(priceInDivinesText != maxDivinePriceText 
-                        ? $"\nDivine: {priceInDivinesText}d - {maxDivinePriceText}d" 
+                    AddText(priceInDivinesText != maxDivinePriceText
+                        ? $"\nDivine: {priceInDivinesText}d - {maxDivinePriceText}d"
                         : $"\nDivine: {priceInDivinesText}d");
                 }
 
                 var maxPriceText = HoveredItem.PriceData.MaxChaosValue.FormatNumber(2, Settings.VisualPriceSettings.MaximalValueForFractionalDisplay);
-                AddText(minPriceText != maxPriceText 
-                    ? $"\nChaos: {minPriceText}c - {maxPriceText}c" 
+                if (priceInChaos > 0)
+                {
+                    AddText(minPriceText != maxPriceText
+                    ? $"\nChaos: {minPriceText}c - {maxPriceText}c"
                     : $"\nChaos: {minPriceText}c");
+                }
+
 
                 if (!string.IsNullOrEmpty(HoveredItem.UniqueName))
                 {
@@ -413,8 +422,8 @@ public partial class Main
                     + $"\nItemType: {HoveredItem.ItemType}"
                     + $"\nMapType: {HoveredItem.MapInfo.MapType}"
                     + $"\nDetailsId: {HoveredItem.PriceData.DetailsId}");
-        } 
-                
+        }
+
         if (Settings.LeagueSpecificSettings.ShowArtifactChaosPrices)
         {
             if (TryGetArtifactPrice(HoveredItem, out var amount, out var artifactName))
@@ -424,9 +433,26 @@ public partial class Main
             }
         }
 
+        if (Settings.LeagueSpecificSettings.ShowUniquesGamble)
+        {
+            if (TryGetGambleUniques(HoveredItem, out var gambleUniques, out var totalValue))
+            {
+                AddSection();
+
+                if (HoveredItem.Rarity != ItemRarity.Unique)
+                    AddText(gambleUniques);
+
+            }
+        }
+
+
+
         var tooltipText = string.Join(sectionBreak, textSections.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()));
         if (!string.IsNullOrWhiteSpace(tooltipText))
         {
+            var itemPos = System.Windows.Forms.Control.MousePosition;
+            Vector2 tooltipPos = new Vector2(itemPos.X, itemPos.Y + Settings.HoveredItemSettings.OffsetY);
+            ImGui.SetNextWindowPos(tooltipPos, ImGuiCond.Always);
             ImGui.BeginTooltip();
             var valuable = priceInChaos >= Settings.VisualPriceSettings.ValuableColorThreshold.Value;
             if (valuable)
@@ -536,10 +562,40 @@ public partial class Main
     private void PriceBoxOverItem(CustomItem item, RectangleF? containerBox, Color textColor)
     {
         var box = item.Element.GetClientRect();
+
         var drawBox = new RectangleF(box.X, box.Y - 2, box.Width, -Settings.PriceOverlaySettings.BoxHeight);
+        var auxColor = Settings.VisualPriceSettings.BackgroundColor;
+        var valueToShow = item.PriceData.MinChaosValue;
+        if (RitualPanel.IsVisible)
+        {
+
+
+
+
+            if (TryGetTributePrice(item, out var amount) && Settings.LeagueSpecificSettings.ShowCostPer1000Tribute)
+            {
+                var auxvalueToShow = amount.ToString();
+                if (amount == 0)
+                {
+                    amount += 1;
+                    Graphics.DrawFrame(box, Color.Red, 5);
+                }
+
+
+                valueToShow = (valueToShow / amount) * 1000;
+                if (valueToShow > Settings.LeagueHighlight.RitualThrehsold)
+                    auxColor = Settings.LeagueHighlight.HighlightColor;
+            }
+            drawBox.Y += 13; // drawbox on Rituals seems a bit off due to using the item rect and not the window item rect itself
+            drawBox.X += 13; //move slightly to the right so we can see stack number
+            drawBox.Width -= 13; //to compensate moving
+        }
+
+
+
 
         (containerBox ?? default).Contains(ref drawBox, out var contains);
-        if ((containerBox == null || contains) && 
+        if ((containerBox == null || contains) &&
             !drawBox.Intersects(HoveredItem?.Element?.Tooltip?.GetClientRectCache ?? default))
         {
             Graphics.DrawBox(drawBox, Settings.VisualPriceSettings.BackgroundColor);
@@ -557,11 +613,27 @@ public partial class Main
 
         if (item.PriceData.ItemBasePrices.Count == 0)
             return;
+        var price = item.PriceData.ItemBasePrices.Max();
+        var AuxColor = Settings.VisualPriceSettings.BackgroundColor;
+        if (price >= Settings.LeagueHighlight.GwennenChaosCutoff) { AuxColor = Settings.LeagueHighlight.HighlightColor; }
+        Graphics.DrawBox(drawBox, AuxColor);
 
-        Graphics.DrawBox(drawBox, Settings.VisualPriceSettings.BackgroundColor);
-        Graphics.DrawText(item.PriceData.ItemBasePrices.Max().FormatNumber(Settings.VisualPriceSettings.SignificantDigits.Value), position, Settings.VisualPriceSettings.FontColor, FontAlign.Center);
+
+
+
+        Graphics.DrawText(price.FormatNumber(Settings.VisualPriceSettings.SignificantDigits.Value), position, Settings.VisualPriceSettings.FontColor, FontAlign.Center);
         if (Settings.DebugSettings.EnableDebugLogging)
             Graphics.DrawText(string.Join(",", item.PriceData.ItemBasePrices), position, Settings.VisualPriceSettings.FontColor, FontAlign.Center);
+
+
+        var drawBox2 = new RectangleF(box.X, box.Y + 20, box.Width, +Settings.PriceOverlaySettings.BoxHeight);
+        var position2 = new Vector2(drawBox.Center.X, drawBox.Center.Y + 20 - ImGui.GetTextLineHeight() / 2);
+
+        if (TryGetGambleUniques(item, out var gambleUniques, out var totalValue))
+        {
+            Graphics.DrawBox(drawBox2, Settings.VisualPriceSettings.BackgroundColor);
+            Graphics.DrawText(totalValue.FormatNumber(2), position2, Settings.VisualPriceSettings.FontColor, FontAlign.Center);
+        }
     }
 
     private void ProcessExpeditionWindow()
@@ -633,13 +705,36 @@ public partial class Main
 
                 if (Settings.LeagueSpecificSettings.ShowArtifactChaosPrices && TryGetArtifactPrice(customItem, out var amount, out var artifactName))
                 {
+                    var price = (customItem.PriceData.MinChaosValue / amount * 100);
                     var text = $"[{artifactName[..3]}]\n" +
                                (customItem.PriceData.MinChaosValue > 0
                                    ? (customItem.PriceData.MinChaosValue / amount * 100).FormatNumber(2)
                                    : "");
+                    var threshold = 0.0;
                     var textSize = Graphics.MeasureText(text);
                     var leftTop = box.BottomLeft.ToVector2Num() - new Vector2(0, textSize.Y);
-                    Graphics.DrawTextWithBackground(text, leftTop, Settings.VisualPriceSettings.FontColor, Color.Black);
+                    switch (artifactName[..3])
+                    {
+                        case "Exc":
+                            threshold = Settings.LeagueHighlight.ExceptionalBlackScytheThreshold;
+                            break;
+                        case "Gra":
+                            threshold = Settings.LeagueHighlight.GrandBlackScytheThreshold;
+                            break;
+                        case "Gre":
+                            threshold = Settings.LeagueHighlight.GreaterBlackScytheThreshold;
+                            break;
+                        case "Les":
+                            threshold = Settings.LeagueHighlight.LesserBlackScytheThreshold;
+                            break;
+                        default:
+                            threshold = 50; // Set default threshold if none of the cases match
+                            break;
+                    }
+                    var AuxColor = Color.Black;
+                    if (price > threshold) { AuxColor = Settings.LeagueHighlight.HighlightColor; }
+                    Graphics.DrawBox(leftTop, leftTop + textSize, AuxColor);
+                    Graphics.DrawText(text, leftTop, Settings.VisualPriceSettings.FontColor);
                 }
             }
         }
@@ -654,12 +749,12 @@ public partial class Main
              GameController.IngameState.IngameUi.SellWindow,
              GameController.IngameState.IngameUi.SellWindowHideout)
                 switch
-                {
-                    ({ IsVisible: true } trade, _, _) => (trade.YourOffer, trade.OtherOffer, trade.SellDialog),
-                    (_, { IsVisible: true } sell, _) => (sell.YourOfferItems, sell.OtherOfferItems, sell.SellDialog),
-                    (_, _, { IsVisible: true } sellHideout) => (sellHideout.YourOfferItems, sellHideout.OtherOfferItems, sellHideout.SellDialog),
-                    (_, _, _) => (null, null, null),
-                };
+            {
+                ({ IsVisible: true } trade, _, _) => (trade.YourOffer, trade.OtherOffer, trade.SellDialog),
+                (_, { IsVisible: true } sell, _) => (sell.YourOfferItems, sell.OtherOfferItems, sell.SellDialog),
+                (_, _, { IsVisible: true } sellHideout) => (sellHideout.YourOfferItems, sellHideout.OtherOfferItems, sellHideout.SellDialog),
+                (_, _, _) => (null, null, null),
+            };
         if (yourItems == null || theirItems == null || element == null || yourItems.Count + theirItems.Count == 0)
         {
             return;
@@ -669,7 +764,7 @@ public partial class Main
         var theirFormatterItems = GetValue(FormatItems(theirItems));
         var yourTradeWindowValue = yourFormattedItems.Sum(x => x.PriceData.MinChaosValue);
         var theirTradeWindowValue = theirFormatterItems.Sum(x => x.PriceData.MinChaosValue);
-        var textPosition = new Vector2(element.GetClientRectCache.Right, element.GetClientRectCache.Center.Y - ImGui.GetTextLineHeight() * 3) 
+        var textPosition = new Vector2(element.GetClientRectCache.Right, element.GetClientRectCache.Center.Y - ImGui.GetTextLineHeight() * 3)
                          + new Vector2(Settings.TradeWindowSettings.OffsetX, Settings.TradeWindowSettings.OffsetY);
         DrawWorthWidget("Theirs\n", true, theirTradeWindowValue, textPosition, 2, Settings.VisualPriceSettings.FontColor, true, []);
         textPosition.Y += ImGui.GetTextLineHeight() * 3;
@@ -872,52 +967,122 @@ public partial class Main
             switch (processingType)
             {
                 case GroundItemProcessingType.WorldItem:
-                {
-                    if (Settings.SoundNotificationSettings.Enabled && 
-                        !_soundPlayedTracker.ContainsKey(item.EntityId))
                     {
-                        var matchingCustomFile =
-                            item.UniqueNameCandidates.Any() ||
-                            !string.IsNullOrEmpty(item.UniqueName)
-                                ? item.UniqueNameCandidates
-                                    .DefaultIfEmpty(item.UniqueName)
-                                    .Select(x => _soundFiles.GetValueOrDefault(x))
-                                    .FirstOrDefault(x => x != null)
-                                : null;
-                        if (item.PriceData.MaxChaosValue >= Settings.SoundNotificationSettings.ValueThreshold ||
-                            Settings.SoundNotificationSettings.PlayCustomSoundsIfBelowThreshold && matchingCustomFile != null)
+                        if (Settings.SoundNotificationSettings.Enabled &&
+                            !_soundPlayedTracker.ContainsKey(item.EntityId))
                         {
-                            if (_soundPlayedTracker.TryAdd(item.EntityId, true))
+                            var matchingCustomFile =
+                                item.UniqueNameCandidates.Any() ||
+                                !string.IsNullOrEmpty(item.UniqueName)
+                                    ? item.UniqueNameCandidates
+                                        .DefaultIfEmpty(item.UniqueName)
+                                        .Select(x => _soundFiles.GetValueOrDefault(x))
+                                        .FirstOrDefault(x => x != null)
+                                    : null;
+                            if (item.PriceData.MaxChaosValue >= Settings.SoundNotificationSettings.ValueThreshold ||
+                                Settings.SoundNotificationSettings.PlayCustomSoundsIfBelowThreshold && matchingCustomFile != null)
                             {
-                                var defaultFile = Path.Join(ConfigDirectory, "default.wav");
-                                if (matchingCustomFile != null && !File.Exists(matchingCustomFile))
+                                if (_soundPlayedTracker.TryAdd(item.EntityId, true))
                                 {
-                                    LogError($"Unable to find {matchingCustomFile}. It was probably deleted. Reload the sound list to update your preferences");
-                                    matchingCustomFile = null;
-                                }
+                                    var defaultFile = Path.Join(ConfigDirectory, "default.wav");
+                                    if (matchingCustomFile != null && !File.Exists(matchingCustomFile))
+                                    {
+                                        LogError($"Unable to find {matchingCustomFile}. It was probably deleted. Reload the sound list to update your preferences");
+                                        matchingCustomFile = null;
+                                    }
 
-                                var fileToPlay = matchingCustomFile ?? defaultFile;
+                                    var fileToPlay = matchingCustomFile ?? defaultFile;
 
-                                if (File.Exists(fileToPlay))
-                                {
-                                    GameController.SoundController.PlaySound(fileToPlay, Settings.SoundNotificationSettings.Volume);
-                                }
-                                else if (fileToPlay == defaultFile)
-                                {
-                                    LogError(
-                                        $"Unable to find the default sound file ({defaultFile}) to play. Disable the sound notification feature, reload the sound list to let the plugin create it, or create it yourself");
+                                    if (File.Exists(fileToPlay))
+                                    {
+                                        GameController.SoundController.PlaySound(fileToPlay, Settings.SoundNotificationSettings.Volume);
+                                    }
+                                    else if (fileToPlay == defaultFile)
+                                    {
+                                        LogError(
+                                            $"Unable to find the default sound file ({defaultFile}) to play. Disable the sound notification feature, reload the sound list to let the plugin create it, or create it yourself");
+                                    }
                                 }
                             }
                         }
+
+                        if (!tooltipRect.Intersects(box) && !leftPanelRect.Intersects(box) && !rightPanelRect.Intersects(box))
+                        {
+                            var isValuable = item.PriceData.MaxChaosValue >= Settings.VisualPriceSettings.ValuableColorThreshold;
+
+                            if (Settings.GroundItemSettings.PriceItemsOnGround &&
+                                (!Settings.GroundItemSettings.OnlyPriceUniquesOnGround ||
+                                 item.Rarity == ItemRarity.Unique))
+                            {
+                                if (item.PriceData.MinChaosValue > 0)
+                                {
+                                    var s = item.PriceData.MinChaosValue.FormatNumber(2);
+                                    if (item.PriceData.MaxChaosValue > item.PriceData.MinChaosValue)
+                                    {
+                                        s += $"-{item.PriceData.MaxChaosValue.FormatNumber(2)}";
+                                    }
+
+                                    using (Graphics.SetTextScale(Settings.GroundItemSettings.GroundPriceTextScale))
+                                    {
+                                        var textSize = Graphics.MeasureText(s);
+                                        var textPos = new Vector2(box.Right - textSize.X, box.Top);
+                                        Graphics.DrawBox(textPos, new Vector2(box.Right, box.Top + textSize.Y), Settings.GroundItemSettings.GroundPriceBackgroundColor);
+                                        Graphics.DrawText(s, textPos, isValuable ? Settings.VisualPriceSettings.ValuableColor : Settings.VisualPriceSettings.FontColor);
+                                    }
+                                }
+                            }
+
+                            if (Settings.UniqueIdentificationSettings.ShowRealUniqueNameOnGround && !item.IsIdentified && item.Rarity == ItemRarity.Unique)
+                            {
+                                float GetRatio(string text)
+                                {
+                                    var textSize = Graphics.MeasureText(text);
+                                    return Math.Min(box.Width * Settings.UniqueIdentificationSettings.UniqueLabelSize / textSize.X, (box.Height - 2) / textSize.Y);
+                                }
+
+                                void DrawOnItemLabel(float scale, string text, Color backgroundColor, Color textColor)
+                                {
+                                    ImGui.SetWindowFontScale(scale);
+                                    var newTextSize = ImGui.CalcTextSize(text);
+                                    var textPosition = box.Center.ToVector2Num() - newTextSize / 2;
+                                    var rectPosition = new Vector2(textPosition.X, box.Top + 1);
+                                    drawList.AddRectFilled(rectPosition, rectPosition + new Vector2(newTextSize.X, box.Height - 2), backgroundColor.ToImgui());
+                                    drawList.AddText(textPosition, textColor.ToImgui(), text);
+                                    ImGui.SetWindowFontScale(1);
+                                }
+
+                                if (item.UniqueNameCandidates.Any())
+                                {
+                                    if (Settings.UniqueIdentificationSettings.OnlyShowRealUniqueNameForValuableUniques && !isValuable)
+                                    {
+                                        continue;
+                                    }
+
+                                    var textColor = isValuable ? Settings.UniqueIdentificationSettings.ValuableUniqueItemNameTextColor : Settings.UniqueIdentificationSettings.UniqueItemNameTextColor;
+                                    var backgroundColor = isValuable
+                                        ? Settings.UniqueIdentificationSettings.ValuableUniqueItemNameBackgroundColor
+                                        : Settings.UniqueIdentificationSettings.UniqueItemNameBackgroundColor;
+                                    var (text, ratio) = Enumerable.Range(1, item.UniqueNameCandidates.Count).Select(perOneLine =>
+                                            string.Join('\n', MoreLinq.Extensions.BatchExtension.Batch(item.UniqueNameCandidates, perOneLine)
+                                                .Select(onLine => string.Join(" / ", onLine))))
+                                        .Select(text => (text, ratio: GetRatio(text)))
+                                        .MaxBy(x => x.ratio);
+
+                                    DrawOnItemLabel(ratio, text, backgroundColor, textColor);
+                                }
+                                else if (Settings.UniqueIdentificationSettings.ShowWarningTextForUnknownUniques)
+                                {
+                                    const string text = "???";
+                                    var ratio = GetRatio(text);
+                                    DrawOnItemLabel(ratio, text, Color.Blue, Color.Red);
+                                }
+                            }
+                        }
+                        break;
                     }
-
-                    if (!tooltipRect.Intersects(box) && !leftPanelRect.Intersects(box) && !rightPanelRect.Intersects(box))
+                case GroundItemProcessingType.HeistReward:
                     {
-                        var isValuable = item.PriceData.MaxChaosValue >= Settings.VisualPriceSettings.ValuableColorThreshold;
-
-                        if (Settings.GroundItemSettings.PriceItemsOnGround &&
-                            (!Settings.GroundItemSettings.OnlyPriceUniquesOnGround ||
-                             item.Rarity == ItemRarity.Unique))
+                        if (Settings.GroundItemSettings.PriceHeistRewards && !leftPanelRect.Contains(box.TopRight) && !rightPanelRect.Contains(box.TopRight))
                         {
                             if (item.PriceData.MinChaosValue > 0)
                             {
@@ -931,88 +1096,18 @@ public partial class Main
                                 {
                                     var textSize = Graphics.MeasureText(s);
                                     var textPos = new Vector2(box.Right - textSize.X, box.Top);
-                                    Graphics.DrawBox(textPos, new Vector2(box.Right, box.Top + textSize.Y), Settings.GroundItemSettings.GroundPriceBackgroundColor);
-                                    Graphics.DrawText(s, textPos, isValuable ? Settings.VisualPriceSettings.ValuableColor : Settings.VisualPriceSettings.FontColor);
+                                    Graphics.DrawBox(textPos, textPos + textSize, Settings.GroundItemSettings.GroundPriceBackgroundColor);
+                                    Graphics.DrawText(s, textPos, Settings.VisualPriceSettings.FontColor);
                                 }
                             }
                         }
 
-                        if (Settings.UniqueIdentificationSettings.ShowRealUniqueNameOnGround && !item.IsIdentified && item.Rarity == ItemRarity.Unique)
-                        {
-                            float GetRatio(string text)
-                            {
-                                var textSize = Graphics.MeasureText(text);
-                                return Math.Min(box.Width * Settings.UniqueIdentificationSettings.UniqueLabelSize / textSize.X, (box.Height - 2) / textSize.Y);
-                            }
-
-                            void DrawOnItemLabel(float scale, string text, Color backgroundColor, Color textColor)
-                            {
-                                ImGui.SetWindowFontScale(scale);
-                                var newTextSize = ImGui.CalcTextSize(text);
-                                var textPosition = box.Center.ToVector2Num() - newTextSize / 2;
-                                var rectPosition = new Vector2(textPosition.X, box.Top + 1);
-                                drawList.AddRectFilled(rectPosition, rectPosition + new Vector2(newTextSize.X, box.Height - 2), backgroundColor.ToImgui());
-                                drawList.AddText(textPosition, textColor.ToImgui(), text);
-                                ImGui.SetWindowFontScale(1);
-                            }
-
-                            if (item.UniqueNameCandidates.Any())
-                            {
-                                if (Settings.UniqueIdentificationSettings.OnlyShowRealUniqueNameForValuableUniques && !isValuable)
-                                {
-                                    continue;
-                                }
-
-                                var textColor = isValuable ? Settings.UniqueIdentificationSettings.ValuableUniqueItemNameTextColor : Settings.UniqueIdentificationSettings.UniqueItemNameTextColor;
-                                var backgroundColor = isValuable
-                                    ? Settings.UniqueIdentificationSettings.ValuableUniqueItemNameBackgroundColor
-                                    : Settings.UniqueIdentificationSettings.UniqueItemNameBackgroundColor;
-                                var (text, ratio) = Enumerable.Range(1, item.UniqueNameCandidates.Count).Select(perOneLine =>
-                                        string.Join('\n', MoreLinq.Extensions.BatchExtension.Batch(item.UniqueNameCandidates, perOneLine)
-                                            .Select(onLine => string.Join(" / ", onLine))))
-                                    .Select(text => (text, ratio: GetRatio(text)))
-                                    .MaxBy(x => x.ratio);
-
-                                DrawOnItemLabel(ratio, text, backgroundColor, textColor);
-                            }
-                            else if (Settings.UniqueIdentificationSettings.ShowWarningTextForUnknownUniques)
-                            {
-                                const string text = "???";
-                                var ratio = GetRatio(text);
-                                DrawOnItemLabel(ratio, text, Color.Blue, Color.Red);
-                            }
-                        }
+                        break;
                     }
-                    break;
-                }
-                case GroundItemProcessingType.HeistReward:
-                {
-                    if (Settings.GroundItemSettings.PriceHeistRewards && !leftPanelRect.Contains(box.TopRight) && !rightPanelRect.Contains(box.TopRight))
-                    {
-                        if (item.PriceData.MinChaosValue > 0)
-                        {
-                            var s = item.PriceData.MinChaosValue.FormatNumber(2);
-                            if (item.PriceData.MaxChaosValue > item.PriceData.MinChaosValue)
-                            {
-                                s += $"-{item.PriceData.MaxChaosValue.FormatNumber(2)}";
-                            }
-
-                            using (Graphics.SetTextScale(Settings.GroundItemSettings.GroundPriceTextScale))
-                            {
-                                var textSize = Graphics.MeasureText(s);
-                                var textPos = new Vector2(box.Right - textSize.X, box.Top);
-                                Graphics.DrawBox(textPos, textPos + textSize, Settings.GroundItemSettings.GroundPriceBackgroundColor);
-                                Graphics.DrawText(s, textPos, Settings.VisualPriceSettings.FontColor);
-                            }
-                        }
-                    }
-
-                    break;
-                }
             }
-                
+
         }
-        
+
         ImGui.End();
     }
 
@@ -1095,7 +1190,7 @@ public partial class Main
         }
 
         var costElement = GetElementByString(item.Element?.AsObject<HoverItemIcon>()?.Tooltip, "Cost:");
-        if (costElement?.Parent == null || 
+        if (costElement?.Parent == null ||
             costElement.Parent.ChildCount < 2 ||
             costElement.Parent.GetChildAtIndex(1).ChildCount < 3)
             return false;
@@ -1129,6 +1224,279 @@ public partial class Main
 
         return false;
     }
-}
 
+    public double CalculateTotalValueBasedOnTier(string tier, double value)
+    {
+        // Dictionary to store the tier multipliers
+        Dictionary<string, double> tierMultipliers = new Dictionary<string, double>()
+        {
+            { "5", 0.032 },
+            { "4", 0.02 },
+            { "3", 0.00345 },
+            { "2", 0.00017 },
+            { "1", 0.00004 },
+            { "0", 0.000006 }
+        };
+
+        // Check if the tier exists in the dictionary
+        if (tierMultipliers.ContainsKey(tier))
+        {
+            // Multiply the value by the tier multiplier
+            return value * tierMultipliers[tier];
+        }
+        else
+        {
+            // Handle the case where the tier is not found
+            throw new ArgumentException("Invalid tier provided.");
+        }
+    }
+
+
+    private bool TryGetGambleUniques(CustomItem item, out string gambleUniques, out double totalValue)
+    {
+        gambleUniques = "";
+        totalValue = 0;
+        try
+        {
+            switch (item.ItemType) // easier to get data for each item type and handle logic based on that
+            {
+                case ItemTypes.UniqueArmour:
+                    var uniqueArmourSearch = CollectedData.UniqueArmours.Lines.FindAll(x => x.BaseType == item.BaseName && x.IsChanceable() && csvItemData.Any(csvitem => csvitem.Name == x.Name) && (x.Links < 5 || x.Links == null));
+                    if (uniqueArmourSearch.Count > 0)
+                    {
+                        //double totalValue = 0;
+                        foreach (var result in uniqueArmourSearch)
+                        {
+
+                            string tier = csvItemData.FirstOrDefault(item => item.Name == result.Name)?.Tier;
+                            string mythicChance = csvItemData.FirstOrDefault(item => item.Name == result.Name)?.Chance.ToString("P1");
+                            if (item.IsCorrupted)
+                            {
+                                gambleUniques += result.Name + " T" + tier + " Mythic Orb Chance:" + mythicChance + " " + result.ChaosValue.ToString() + " Chaos \n";
+                            }
+                            else
+                            {
+                                gambleUniques += result.Name + " T" + tier + " " + result.ChaosValue.ToString() + " Chaos \n";
+                                var chaosVal = result.ChaosValue ?? 0f;
+                                totalValue += CalculateTotalValueBasedOnTier(tier, chaosVal);
+                            }
+
+
+
+                        }
+                        gambleUniques += "Total expected value is" + " " + totalValue.ToString() + "  \n";
+
+                        // sum everything and multiply by the base rates
+
+
+                    }
+                    return true;
+                    break;
+                case ItemTypes.UniqueWeapon:
+                    var uniqueWeaponSearch = CollectedData.UniqueWeapons.Lines.FindAll(x => x.BaseType == item.BaseName && x.IsChanceable() && csvItemData.Any(csvitem => csvitem.Name == x.Name) && (x.Links < 5 || x.Links == null));
+                    if (uniqueWeaponSearch.Count > 0)
+                    {
+                        //double totalValue = 0; 
+                        foreach (var result in uniqueWeaponSearch)
+                        {
+                            string tier = csvItemData.FirstOrDefault(item => item.Name == result.Name)?.Tier;
+                            string mythicChance = csvItemData.FirstOrDefault(item => item.Name == result.Name)?.Chance.ToString("P1");
+                            if (item.IsCorrupted)
+                            {
+                                gambleUniques += result.Name + " T" + tier + " Mythic Orb Chance:" + mythicChance + " " + result.ChaosValue.ToString() + " Chaos \n";
+                            }
+                            else
+                            {
+                                gambleUniques += result.Name + " T" + tier + " " + result.ChaosValue.ToString() + " Chaos \n";
+                                var chaosVal = result.ChaosValue ?? 0f;
+                                totalValue += CalculateTotalValueBasedOnTier(tier, chaosVal);
+                            }
+
+
+
+                        }
+                        gambleUniques += "Total expected value is" + " " + totalValue.ToString() + "  \n";
+                    }
+                    return true;
+                    break;
+                case ItemTypes.UniqueAccessory:
+                    var uniqueAccessorySearch = CollectedData.UniqueAccessories.Lines.FindAll(x => x.BaseType == item.BaseName && x.IsChanceable() && csvItemData.Any(csvitem => csvitem.Name == x.Name));
+                    if (uniqueAccessorySearch.Count > 0)
+                    {
+                        //double totalValue = 0; 
+                        foreach (var result in uniqueAccessorySearch)
+                        {
+                            string tier = csvItemData.FirstOrDefault(item => item.Name == result.Name)?.Tier;
+                            string mythicChance = csvItemData.FirstOrDefault(item => item.Name == result.Name)?.Chance.ToString("P1");
+                            if (item.IsCorrupted)
+                            {
+                                gambleUniques += result.Name + " T" + tier + " Mythic Orb Chance:" + mythicChance + " " + result.ChaosValue.ToString() + " Chaos \n";
+                            }
+                            else
+                            {
+                                gambleUniques += result.Name + " T" + tier + " " + result.ChaosValue.ToString() + " Chaos \n";
+                                var chaosVal = result.ChaosValue ?? 0f;
+                                totalValue += CalculateTotalValueBasedOnTier(tier, chaosVal);
+                            }
+
+
+
+                        }
+                        gambleUniques += "Total expected value is" + " " + totalValue.ToString() + "  \n";
+                    }
+                    return true;
+                    break;
+                case ItemTypes.UniqueJewel:
+                    var uniqueJewelSearch = CollectedData.UniqueJewels.Lines.FindAll(x => x.DetailsId.Contains(item.BaseName.ToLower().Replace(" ", "-")) && x.IsChanceable() && csvItemData.Any(csvitem => csvitem.Name == x.Name));
+                    if (uniqueJewelSearch.Count > 0)
+                    {
+                        //double totalValue = 0; 
+                        foreach (var result in uniqueJewelSearch)
+                        {
+                            string tier = csvItemData.FirstOrDefault(item => item.Name == result.Name)?.Tier;
+                            string mythicChance = csvItemData.FirstOrDefault(item => item.Name == result.Name)?.Chance.ToString("P1");
+                            if (item.IsCorrupted)
+                            {
+                                gambleUniques += result.Name + " T" + tier + " Mythic Orb Chance:" + mythicChance + " " + result.ChaosValue.ToString() + " Chaos \n";
+                            }
+                            else
+                            {
+                                gambleUniques += result.Name + " T" + tier + " " + result.ChaosValue.ToString() + " Chaos \n";
+                                var chaosVal = result.ChaosValue ?? 0f;
+                                totalValue += CalculateTotalValueBasedOnTier(tier, chaosVal);
+                            }
+
+
+
+                        }
+                        gambleUniques += "Total expected value is" + " " + totalValue.ToString() + "  \n";
+                    }
+                    return true;
+                    break;
+
+            }
+        }
+        catch (Exception e)
+        {
+            if (Settings.DebugSettings.EnableDebugLogging)
+            {
+                LogMessage($"{GetCurrentMethod()}.GetValueHaggle() Error that i dont understand, Item: {item.BaseName}", 5, Color.Red);
+                LogMessage($"{GetCurrentMethod()}.GetValueHaggle() {e.Message}", 5, Color.Red);
+            }
+        }
+        return true;
+
+    }
+
+    private bool TryGetTributePrice(CustomItem item, out double amount)
+    {
+        Element GetElementByString(Element element, string str)
+        {
+            if (element == null || string.IsNullOrWhiteSpace(str))
+                return null;
+
+            if (element.Text?.Trim() == str)
+                return element;
+
+            return element.Children.Select(c => GetElementByString(c, str)).FirstOrDefault(e => e != null);
+        }
+
+        var costElement = GetElementByString(item.Element?.AsObject<HoverItemIcon>()?.Tooltip, "Cost:");
+
+        if (costElement?.Parent == null ||
+           costElement.Parent.ChildCount < 2 ||
+           costElement.Parent.GetChildAtIndex(1).ChildCount < 3)
+            return false;
+        var amountText = Regex.Replace(costElement.Parent.GetChildFromIndices(1, 0)?.Text, "[^0-9]", "");
+
+        if (amountText == null)
+            return false;
+
+        if (costElement.Text.Equals("Cost:"))
+        {
+            if (!int.TryParse(amountText.TrimEnd('x').Replace(".", null), NumberStyles.Integer, CultureInfo.InvariantCulture, out var amountInt))
+            {
+                return false;
+            }
+
+            amount = amountInt;
+            return true;
+        }
+
+        return false;
+
+
+    }
+
+    //private bool TryGetArtifactPrice(CustomItem item, out double amount, out string artifactName)
+    //{
+    //    var haggleText = HagglePanel.GetChildFromIndices(6, 2, 0)?.Text;
+
+    //    var haggleType = haggleText switch
+    //    {
+    //        "Exchange" => Exchange,
+    //        "Gamble" => Gamble,
+    //        "Deal" => Deal,
+    //        "Haggle" => Haggle,
+    //        _ => None
+    //    };
+
+    //    amount = 0;
+    //    artifactName = null;
+    //    if (item?.Element == null)
+    //        return false;
+
+    //    Element GetElementByString(Element element, string str)
+    //    {
+    //        if (element == null || string.IsNullOrWhiteSpace(str))
+    //            return null;
+
+    //        if (element.Text?.Trim() == str)
+    //            return element;
+
+    //        return element.Children.Select(c => GetElementByString(c, str)).FirstOrDefault(e => e != null);
+    //    }
+
+    //    var costElement = GetElementByString(item.Element?.AsObject<HoverItemIcon>()?.Tooltip, "Cost:");
+    //    if (costElement?.Parent == null ||
+    //        costElement.Parent.ChildCount < 2 ||
+    //        costElement.Parent.GetChildAtIndex(1).ChildCount < 3)
+    //        return false;
+    //    var amountText = costElement.Parent.GetChildFromIndices(1, 0)?.Text;
+    //    if (amountText == null)
+    //        return false;
+    //    artifactName = costElement.Parent.GetChildFromIndices(1, 2)?.Text;
+    //    if (artifactName == null)
+    //        return false;
+
+
+    //    else
+    //    {
+
+    //    }
+    //    if (costElement.Text.Equals("Cost:") && haggleType == Haggle) // Tujen haggling
+    //    {
+    //        if (!int.TryParse(amountText.TrimEnd('x').Replace(".", null), NumberStyles.Integer, CultureInfo.InvariantCulture, out var amountInt))
+    //        {
+    //            return false;
+    //        }
+
+    //        amount = amountInt;
+    //        return true;
+    //    }
+
+    //    if (costElement.Text.Equals("Cost Per Unit:")) // Artifact stacks (Dannig)
+    //    {
+    //        if (!double.TryParse(amountText, NumberStyles.Float, CultureInfo.InvariantCulture, out var costPerUnit))
+    //        {
+    //            return false;
+    //        }
+
+    //        amount = item.CurrencyInfo.StackSize * costPerUnit;
+    //        return true;
+    //    }
+
+    //    return false;
+    //}
+}
 internal record ItemOnGround(CustomItem Item, GroundItemProcessingType Type, RectangleF? ClientRect);
